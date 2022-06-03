@@ -16,12 +16,12 @@ Distributed as-is; no warranty is given.
 
 #include <AuxTalon.h>
 
-AuxTalon::AuxTalon(uint8_t talonPort, uint8_t version)
+AuxTalon::AuxTalon(uint8_t talonPort, uint8_t version) : ioAlpha(0x20), ioBeta(0x23), ioGamma(0x24)
 {
 	
 }
 
-int AuxTalon::begin(time_t time) 
+String AuxTalon::begin(time_t time, bool &criticalFault, bool &fault) 
 {
 	//Only use isEnabled() if using particle
 	#if defined(ARDUINO) && ARDUINO >= 100 
@@ -30,16 +30,35 @@ int AuxTalon::begin(time_t time)
 		if(!Wire.isEnabled()) Wire.begin(); //Only initialize I2C if not done already //INCLUDE FOR USE WITH PARTICLE 
 	#endif
 
+	// bool criticalFault = false; //Used to keep track if a critical error has been encountered during the initialization
+	// bool fault = false; //Used to keep track if a non-critical error has been encountered during the initialization
+	int startingErrors = numErrors; //Grab the number of errors which have been logged when we start the begin call, used to keep track of new errors
 	//Initalize io expanders 
-	ioAlpha.begin();
-	ioBeta.begin();
-	ioGamma.begin();	
+	int ioError[3] = {0};
+	ioError[0] = ioAlpha.begin();
+	ioError[1] = ioBeta.begin();
+	ioError[2] = ioGamma.begin();	
+
+	for(int i = 0; i < 3; i++) {
+		if(ioError[i] != 0) { 
+			throwError(IO_INIT_ERROR | ioError[i]); //Throw error on first init error, not again 
+			criticalFault = true; //If any IO expander fails, this is a critical error  
+			break;
+		}
+	}
+
+	Wire.beginTransmission(ADR_ADS1115);
+	Wire.write(0x00);
+	if(Wire.endTransmission() != 0) {
+		throwError(ADC_INIT_ERROR); //Throw ADC initialization error
+		fault = true; //Set non-critical fault flag
+	}
 	// ads.begin();
 
 	setPinDefaults();
 	
 	///////////////////// RUN DIAGNOSTICS /////////////
-	int diagnosticResults = selfDiagnostic(2); //Run level two diagnostic
+	String diagnosticResults = selfDiagnostic(2); //Run level two diagnostic
 
 	////////// RESET COUNTERS //////////////////////////
 	clearCount(time); //Clear counter and pass time info in
@@ -52,8 +71,12 @@ int AuxTalon::begin(time_t time)
 
 
 	initDone = true; //Set init flag
-	return sleep(false); //Turn off sleep so device operated. Return I2C status, just to check if device is connected to bus 
+	// if(criticalFault == true) return -1; //If a critical fault was detected, return with critical fault code
+	if(numErrors - startingErrors > 0 || fault == true) fault = true; //If a non-critical fault was detected, or additional errors thrown, set fault
+	// else return 0; //Only if no additional errors present, return operational state
+	return diagnosticResults; //Return diagnostic string
 }
+
 
 // int AuxTalon::reportErrors(uint32_t *errorOutput, size_t length)
 // {
@@ -77,6 +100,10 @@ int AuxTalon::begin(time_t time)
 // 	}
 // 	return -1; //Return fault if unknown cause 
 // }
+int AuxTalon::sleep(bool State)
+{
+	return 0; //DEBUG!
+}
 
 String AuxTalon::getErrors()
 {
@@ -94,15 +121,21 @@ String AuxTalon::getErrors()
 	// }
 	String output = "{\"ERRORS\":{"; // OPEN JSON BLOB
 	output = output + "\"CODES\":["; //Open codes pair
-	for(int i = 0; i < MAX_NUM_ERRORS; i++) { //Interate over whole array
-		output = output + "0x" + String(error[i], HEX) + ","; //Add each error code
+
+	for(int i = 0; i < min(MAX_NUM_ERRORS, numErrors); i++) { //Interate over used element of array without exceeding bounds
+		output = output + String(errors[i]) + ","; //Add each error code
+		errors[i] = 0; //Clear errors as they are read
 	}
-	output = output + "],"; //Close codes pair
-	output = "\"OW\":"; //Open state pair
+	if(output.substring(output.length() - 1).equals(",")) {
+		output = output.substring(0, output.length() - 1); //Trim trailing ','
+	}
+	output = output + "],"; //close codes pair
+	output =  output + "\"OW\":"; //Open state pair
 	if(numErrors > MAX_NUM_ERRORS) output = output + "1,"; //If overwritten, indicate the overwrite is true
 	else output = output + "0,"; //Otherwise set it as clear
-	output = output + "\"NUM\":" + String(numErrors) + ","; //Append number of errors
+	output = output + "\"NUM\":" + String(numErrors); //Append number of errors
 	output = output + "}}"; //CLOSE JSON BLOB
+	numErrors = 0; //Clear error count
 	return output;
 
 	// return -1; //Return fault if unknown cause 
@@ -119,10 +152,21 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel)
 {
 	if(diagnosticLevel == 0) {
 		//TBD
-		return -1;
+		return "{\"lvl-0\":{}}";
 	}
 
-	if(diagnosticLevel == 4) {
+	else if(diagnosticLevel == 1) {
+		//TBD
+		return "{\"lvl-1\":{}}";
+	}
+
+	else if(diagnosticLevel == 2) {
+		//TBD
+		return "{\"lvl-2\":{}}";
+	}
+
+
+	else if(diagnosticLevel == 4) {
 		// String output = selfDiagnostic(5); //Call the lower level of self diagnostic 
 		// output = output.substring(0,output.length() - 1); //Trim off closing brace
 		String output = "{\"lvl-4\":{"; //OPEN JSON BLOB
@@ -142,21 +186,23 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel)
  			ioAlpha.digitalWrite(pinsAlpha::MUX_SEL0, (i & 0x01)); //Write low bit of counter to MUX_SEL0
  			ioAlpha.digitalWrite(pinsAlpha::MUX_SEL1, ((i >> 1) & 0x01)); //Write high bit of counter to MUX_SEL1
 			ioAlpha.digitalWrite(pinsAlpha::MUX_SEL2, LOW); //Read external ports first
+			delay(1); //DEBUG!
 			portOutputVoltage[i] = float(adcRead(3, 0))*(0.1875); //Read from port 3 with no gain, convert to mV
 			portOutputString = portOutputString + String(portOutputVoltage[i], 4) + ","; //Use max decimal places for min ADC resolution x.1875 
 			ioAlpha.digitalWrite(pinsAlpha::MUX_SEL2, HIGH); //Read internal ports next
+			delay(1); //DEBUG!
 			portInputVoltage[i] = float(adcRead(3, 0))*(0.1875); //Read from port 3 with no gain, convert to mV
 			portInputString = portInputString + String(portInputVoltage[i], 4) + ","; //Use max decimal places for min ADC resolution x.1875 
 			if((portInputVoltage[i] - portOutputVoltage[i])/portInputVoltage[i] > MAX_DISAGREE) throwError(BUS_DISAGREE | i); //Throw port disagree error and note position of port
 		}
 		
-		portOutputString = portOutputString + "],"; //Cap substring
-		portInputString = portInputString + "],"; //Cap substring
+		portInputString = portInputString.substring(0, portInputString.length() - 1) + "],"; //Trim trailing ',' and cap substring
+		portOutputString = portOutputString.substring(0, portOutputString.length() - 1) + "]"; //Trim trailing ',' and cap substring
 
-		const float max3v3 = 3.3*(1 + MAX_DISAGREE/2.0); //Calc ranges for bus values
-		const float min3v3 = 3.3*(1 - MAX_DISAGREE/2.0);
-		const float max5v = 5.0*(1 + MAX_DISAGREE/2.0);
-		const float min5v = 5.0*(1 - MAX_DISAGREE/2.0);
+		const float max3v3 = 3300*(1 + MAX_DISAGREE/2.0); //Calc ranges for bus values (working in mV!)
+		const float min3v3 = 3300*(1 - MAX_DISAGREE/2.0);
+		const float max5v = 5000*(1 + MAX_DISAGREE/2.0);
+		const float min5v = 5000*(1 - MAX_DISAGREE/2.0);
 		for(int i = 0; i < 3; i++) {
 			if(portInputVoltage[i] < max3v3 && portInputVoltage[i] > min3v3) portVoltageSettings[i] = 0; //If within 3v3 range, set port config accordingly 
 			else if(portInputVoltage[i] < max5v && portInputVoltage[i] > min5v) portVoltageSettings[i] = 1; //If within the 5v range, set the port config accordingly 
@@ -170,9 +216,9 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel)
 		ioAlpha.digitalWrite(pinsAlpha::MUX_SEL1, 1);
 		ioAlpha.digitalWrite(pinsAlpha::MUX_SEL2, HIGH); 
 		float busVoltage_5V = float(adcRead(3, 0))*(0.1875); //Read 5V port with no gain, convert to mV
-		if((busVoltage_5V - 5.0)/5.0 > MAX_DISAGREE) throwError(BUS_OUTOFRANGE | 3); //Throw out of range error and note position of port
+		if((busVoltage_5V - 5000)/5000 > MAX_DISAGREE) throwError(BUS_OUTOFRANGE | 3); //Throw out of range error and note position of port
 
-		output = output + portInputString + portOutputString + "},"; //Concatonate strings and cap
+		output = output + portInputString + portOutputString + ",\"5V0_RAIL\":" + String(busVoltage_5V, 4) +  "},"; //Concatonate strings and cap
 		String level5 = selfDiagnostic(5); //Call the lower level of self diagnostic 
 		level5 = level5.substring(1,level5.length() - 1); //Trim off opening and closing brace
 		output = output + level5; //Concatonate level 5 on top of level 4
@@ -180,7 +226,8 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel)
 		return output;
 
 	}
-	if(diagnosticLevel == 5) {
+
+	else if(diagnosticLevel == 5) {
 		String output = "{\"lvl-5\":{"; //OPEN JSON BLOB
 		for(int i = 0; i < 3; i++) {
 			overflow[i] = ioBeta.getInterrupt(pinsBeta::OVF1 + i); //Read in overflow values
@@ -193,44 +240,52 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel)
 			}
 		}
 
-		output = output + "\"ALPHA\":0x" + String(ioAlpha.readBus(), HEX) + ","; //Append ALPHA port readout
-		output = output + "\"BETA\":0x" + String(ioBeta.readBus(), HEX) + ","; //Append BETA port readout
-		output = output + "\"ALPHA_INT\":0x" + String(ioAlpha.getAllInterrupts(PCAL9535A::IntAge::BOTH), HEX) + ","; //Append ALPHA interrupt readout
-		output = output + "\"BETA_INT\":0x" + String(ioBeta.getAllInterrupts(PCAL9535A::IntAge::BOTH), HEX) + ","; //Append BETA interrupt readout
+		output = output + "\"ALPHA\":" + String(ioAlpha.readBus()) + ","; //Append ALPHA port readout
+		output = output + "\"BETA\":" + String(ioBeta.readBus()) + ","; //Append BETA port readout
+		output = output + "\"ALPHA_INT\":" + String(ioAlpha.getAllInterrupts(PCAL9535A::IntAge::BOTH)) + ","; //Append ALPHA interrupt readout
+		output = output + "\"BETA_INT\":" + String(ioBeta.getAllInterrupts(PCAL9535A::IntAge::BOTH)) + ","; //Append BETA interrupt readout
 		output = output + "\"PORT_CFG\":[" + String(portVoltageSettings[0]) + "," + String(portVoltageSettings[1]) + "," + String(portVoltageSettings[2]) + "],"; 
 		output = output + "\"I2C\":[";
 		for(int adr = 0; adr < 128; adr++) { //Check for addresses present 
 			Wire.beginTransmission(adr);
 			Wire.write(0x00);
 			if(Wire.endTransmission() == 0) {
-				output = output + "0x" + String(adr, HEX) + ",";
+				output = output + String(adr) + ",";
 			}
 		}
-		output = output + "]}}"; //CLOSE JSON BLOB
+		if(output.substring(output.length() - 1).equals(",")) {
+			output = output.substring(0, output.length() - 1); //Trim trailing ',' is present
+		}
+		output = output + "]}"; // close array, close pair
+		output = output + "}"; //CLOSE JSON BLOB, 
 		ioAlpha.clearInterrupt(PCAL9535A::IntAge::BOTH); //Clear all interrupts on Alpha
 		ioBeta.clearInterrupt(PCAL9535A::IntAge::BOTH); //Clear all interrupts on Beta
 		return output;
-	}	
+	}
+
+	return "{}"; //Return null if reach end	
 }
 
 int AuxTalon::restart()
 {
-	if(initDone == false) begin(); //If for some reason the begin() function has not been run, call this now
+	bool hasCriticalError = false;
+	bool hasError = false;
+	if(initDone == false) begin(0, hasCriticalError, hasError); //If for some reason the begin() function has not been run, call this now //FIX!
 	setPinDefaults(); //Reset IO expander pins to their default state
 	for(int i = 0; i < 3; i++) {
 		if (faults[i] == true) { 
-			if(ioBeta.digitalRead(pinsBeta::FAULT1 + i) == LOW) { //If the FAULT is still asserted 
-				ioBeta.digitalWrite(pinsBeta::EN1 + i, HIGH); //Turn port power ON
-				ioBeta.digitalWrite(pinsBeta::EN1 + i, LOW); //Turn port off
-				ioBeta.digitalWrite(pinsBeta::EN1 + i, HIGH); //Turn port back on finally
+			if(ioAlpha.digitalRead(pinsAlpha::FAULT1 + i) == LOW) { //If the FAULT is still asserted 
+				ioAlpha.digitalWrite(pinsAlpha::EN1 + i, HIGH); //Turn port power ON
+				ioAlpha.digitalWrite(pinsAlpha::EN1 + i, LOW); //Turn port off
+				ioAlpha.digitalWrite(pinsAlpha::EN1 + i, HIGH); //Turn port back on finally
 				delay(10); //Wait for trip
-				if(ioBeta.digitalRead(pinsBeta::FAULT1 + i) == LOW) { //If FAULT is re-asserted after power cycle
+				if(ioAlpha.digitalRead(pinsAlpha::FAULT1 + i) == LOW) { //If FAULT is re-asserted after power cycle
 					throwError(POWER_FAULT_PERSISTENT | i); //Throw persistent power fault error with given port appended 
 				}
 			}
 		}
 	}
-
+	return 0; //FIX!
 }
 
 String AuxTalon::getData(time_t time)
@@ -252,14 +307,14 @@ String AuxTalon::getData(time_t time)
 		countData = countData + String(counts[i]) + ",";
 		rateData = rateData + String(rates[i], 7) + ",";
 	}
-	analogData = analogData + "],";
-	analogAvgData = analogAvgData + "],";
-	countData = countData + "],";
-	rateData = rateData + "],";
+	analogData = analogData.substring(0,analogData.length() - 1) + "],"; //Trim trailing ',' and close array
+	analogAvgData = analogAvgData.substring(0,analogAvgData.length() - 1) + "],";
+	countData = countData.substring(0,countData.length() - 1) + "],";
+	rateData = rateData.substring(0,rateData.length() - 1) + "],";
 
 	output = output + analogData + analogAvgData + countData + rateData; //Concatonate all sub-strings
-	output = output + "START:" + String(startTime) + ","; //Concatonate start time
-	output = output + "STOP:" + String(stopTime) + ","; //Concatonate stop time
+	output = output + "\"START\":" + String((long) startTime) + ","; //Concatonate start time
+	output = output + "\"STOP\":" + String((long) stopTime); //Concatonate stop time
 	output = output + "}}"; //CLOSE JSON BLOB
 	return output;
 
@@ -273,7 +328,7 @@ int AuxTalon::updateCount(time_t time)
 	
 	for (int i = 0; i < 3; i++)
 	{
-		if(timeBaseGood == true) rates[i] = float(counts[i])/float(time - timeClearTime); //Calculate the average rate in Hz, only if there is a good timebase currently
+		if(timeBaseGood == true) rates[i] = float(counts[i])/float(time - tempClearTime); //Calculate the average rate in Hz, only if there is a good timebase currently
 		else rates[i] = 0; //Otherwise, null the rates
 	}
 	return 0; //DEBUG!
@@ -325,11 +380,11 @@ int AuxTalon::readCounters()
 		if(overflow[i] == false && faults[i] == false && resetState == false) counts[i] = ioGamma.readBus(); //Read parellel bus output
 		else counts[i] = 0; //If any critical error present, invalidate data
 		ioBeta.digitalWrite(pinsBeta::COUNT_EN1 + i, HIGH); //Disable given bus
-		else if (resetState == true) {
+		if (resetState == true) {
 			throwError(DEVICE_RESET); //Report the unplanned reset
 		}
 	}
-	
+	return 0; //FIX!
 }
 
 int AuxTalon::updateCount()
@@ -358,11 +413,12 @@ int AuxTalon::clearCount(time_t time)
 		throwError(TIME_DELTA_EXCEEDED);
 	}
 
-	ioBeta.pinMode(pinsBeta::RST, OUTPUT);
-	ioBeta.digitalWrite(pinsBeta::RST, HIGH); //Pulse RST line
-	ioBeta.digitalWrite(pinsBeta::RST, LOW);
-	ioBeta.digitalWrite(pinsBeta::RST, HIGH);
+	ioAlpha.pinMode(pinsAlpha::RST, OUTPUT);
+	ioAlpha.digitalWrite(pinsAlpha::RST, HIGH); //Pulse RST line
+	ioAlpha.digitalWrite(pinsAlpha::RST, LOW);
+	ioAlpha.digitalWrite(pinsAlpha::RST, HIGH);
 	// ioBeta.clearInterrupt(PCAL9535A::IntAge::BOTH); //Clear all interrupts 
+	return 0; //FIX!
 }
 
 int AuxTalon::updateAnalog()
@@ -377,32 +433,38 @@ int AuxTalon::updateAnalog()
 	if(automaticGainControl) {
 		for(int port = 0; port < 3; port++) {
 			int16_t val = adcRead(port, 1); //Read each port with FSR set to 4.096V
-			gainVals[port] = __builtin_clz(val << 1); //If the measured result is more than half of the FSR at a given step, choose the next highest gain range. Measuring the number of leading zeros tells us the cap of the size of the reading in a divisable by 2 manor 
+			gainVals[port] = __builtin_clz(val << 1) - 16; //If the measured result is more than half of the FSR at a given step, choose the next highest gain range. Measuring the number of leading zeros tells us the cap of the size of the reading in a divisable by 2 manor. Need to subtract 16 since it works in a 32 bit world
+			if(gainVals[port] > sizeof(adcGainConfigs)/sizeof(adcGainConfigs[0])) { //FIX! If result is greater than max index of array, force to max 0, can occour if I2C error
+				gainVals[port] = 0;
+				//FIX!
+			}
 		}
 	}
 
 	for(int port = 0; port < 3; port++) {
-		analogVals[port] = adcRead(port, gainVals[port]);
+		analogVals[port] = float(adcRead(port, gainVals[port]))*adcGainConv[gainVals[port]]; //Report converted value
+		// analogVals[port] = gainVals[port]; //Report converted value //DEBUG!
 		long accumulatorVal = 0; //Used to sum all measures
 		for(int i = 0; i < samplesToAverage; i++) { //Sum all N samples together
 			accumulatorVal = accumulatorVal + adcRead(port, gainVals[port]);
 		}
-		analogValsAvg[port] = int(accumulatorVal/long(samplesToAverage)); //divide by total number of samples taken, cast to signed
+		analogValsAvg[port] = ((float(accumulatorVal)*adcGainConv[gainVals[port]])/float(samplesToAverage)); //divide by total number of samples taken, multiply by converting value, perform math in float form to prevent rounding error on int division
 	}
-	return gainVals; //FIX!
+	return 0; //FIX!
 }
 
 int16_t AuxTalon::adcRead(uint8_t port, uint8_t gain)
 {
-	int error = adcConfig(adcBaseConfigHigh | adcGainConfigs[gain] | adcPortConfigs[port] | adcStartConversion, adcBaseConfigLow); //Set config to base with specified gain and connected to given port, tell ADC to begin conversion
+	int error = adcConfig(adcBaseConfigHigh | adcGainConfigs[gain] | adcPortConfigs[port], adcBaseConfigLow); //Set config to base with specified gain and connected to given port
+	adcConfig(adcBaseConfigHigh | adcGainConfigs[gain] | adcPortConfigs[port] | adcStartConversion, adcBaseConfigLow); //Tell ADC to begin conversion 
 	if(error != 0){
 		throwError(ADC_I2C_ERROR | error); //Alert to error if I2C comunication problem 
 		return 0; //Exit with error condition 
 	}
-	bool newRead = readADCReg(0x01) >> 14; //Grab OS bit from config reg
+	bool newRead = (readADCReg(0x01) >> 15) & 0x01; //Grab OS bit from config reg
 	unsigned long localTime = millis();
 	while(!newRead && (millis() - localTime) < adcReadTimeout) { //if there is not already a new read, continue to read from config reg until new read is reported or timeout occours 
-		newRead = readADCReg();
+		newRead = (readADCReg() >> 15) & 0x01 ;
 	}
 	if(!newRead) {
 		throwError(ADC_TIMEOUT_ERROR); //If new reading is not done, throw timeout error
@@ -441,8 +503,8 @@ int AuxTalon::adcConfig(uint8_t configHigh, uint8_t configLow)
 {
 	Wire.beginTransmission(ADR_ADS1115);
 	Wire.write(0x01); //Set pointer to config register
-	Wire.write(config >> 8); //Write high byte
-	Wire.write(config & 0xFF); //Write low byte
+	Wire.write(configHigh); //Write high byte
+	Wire.write(configLow); //Write low byte
 	int error = Wire.endTransmission();
 	return error; 
 }
@@ -468,6 +530,24 @@ int16_t AuxTalon::readADCReg(uint8_t reg)
 	}
 	else {
 		error = 0x07; //Set timeout error 
+		throwError(ADC_I2C_ERROR | error); //If I2C timeout occoured, throw I2C error as well 
+		return 0;
+	}
+}
+
+int16_t AuxTalon::readADCReg()
+{
+	uint8_t valHigh = 0; //Store local copies of reg 
+	uint8_t valLow = 0; 
+	uint8_t numBytes = 0; //Number of bytes read from the ADC
+	numBytes = Wire.requestFrom(WireTransmission(ADR_ADS1115).quantity(2).timeout(adcReadTimeout));
+	if(numBytes == 2) {
+		valHigh = Wire.read();
+		valLow = Wire.read();
+		return (valHigh << 8) | valLow; //Concatonate and return correct output
+	}
+	else {
+		int error = 0x07; //Set timeout error 
 		throwError(ADC_I2C_ERROR | error); //If I2C timeout occoured, throw I2C error as well 
 		return 0;
 	}

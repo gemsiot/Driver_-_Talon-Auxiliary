@@ -51,13 +51,13 @@ Distributed as-is; no warranty is given.
 // #include "Adafruit_ADS1015.h"
 
 // enum GroupMode{
-// 	Dim = 0,
-// 	Blink = 1,
+//  Dim = 0,
+//  Blink = 1,
 // };
 
 // enum OutputMode{
-// 	OpenDrain = 0,
-// 	TotemPole = 1,
+//  OpenDrain = 0,
+//  TotemPole = 1,
 // };
 
 // namespace OutputType 
@@ -114,22 +114,26 @@ namespace pinsBeta
  */
 class AuxTalon
 {
-  const int DEAFULT_PORT = 4; ///<Use port 4 by default
-  const int DEFAULT_VERSION = 0x14; ///<Use hardware version v1.4 by default
-  const int MAX_NUM_ERRORS = 10; ///<Maximum number of errors to log before overwriting previous errors in buffer
+  constexpr static  int DEAFULT_PORT = 4; ///<Use port 4 by default
+  constexpr static  int DEFAULT_VERSION = 0x14; ///<Use hardware version v1.4 by default
+  constexpr static  int MAX_NUM_ERRORS = 10; ///<Maximum number of errors to log before overwriting previous errors in buffer
 
   ////////////// ERROR CODES ///////////////
-  const uint32_t ADC_I2C_ERROR = 0; //FIX!!! (Low 3 bits are returned error)
-  const uint32_t ADC_TIMEOUT_ERROR = 0; //FIX!!!
-  const uint32_t COUNTER_OVERFLOW = 0; //FIX!!! (low 2 bits are which port)
-  const uint32_t TIME_DELTA_EXCEEDED = 0; //FIX!!! 
-  const uint32_t TIME_BAD = 0; //FIX!
-  const uint32_t DEVICE_RESET = 0; //FIX!
-  const uint32_t POWER_FAULT = 0; //FIX! (low 2 bits are which port)
-  const uint32_t POWER_FAULT_PERSISTENT = 0; //FIX! (low 2 bits are which port)
-  const uint32_t BUS_DISAGREE = 0; //FIX! (low 2 bits are which port)
-  const uint32_t BUS_OUTOFRANGE = 0; //FIX! (low 2 bits are which port, 3 = 5V rail)
+  const uint32_t ADC_I2C_ERROR = 0xFF00; //FIX!!! (Low 3 bits are returned error)
+  const uint32_t ADC_TIMEOUT_ERROR = 0xFF10; //FIX!!!
+  const uint32_t COUNTER_OVERFLOW = 0xFF20; //FIX!!! (low 2 bits are which port)
+  const uint32_t TIME_DELTA_EXCEEDED = 0xFF30; //FIX!!! 
+  const uint32_t TIME_BAD = 0xFF40; //FIX!
+  const uint32_t DEVICE_RESET = 0xFF50; //FIX!
+  const uint32_t POWER_FAULT = 0xFF60; //FIX! (low 2 bits are which port)
+  const uint32_t POWER_FAULT_PERSISTENT = 0xFF70; //FIX! (low 2 bits are which port)
+  const uint32_t BUS_DISAGREE = 0xFF80; //FIX! (low 2 bits are which port)
+  const uint32_t BUS_OUTOFRANGE = 0xFF90; //FIX! (low 2 bits are which port, 3 = 5V rail)
+  const uint32_t IO_INIT_ERROR = 0xFFA0; //FIX! (Low 3 bits are returned error)
+  const uint32_t ADC_INIT_ERROR = 0xFFB0; //FIX! (Low 3 bits are returned error)
   const float MAX_DISAGREE = 0.1; //If bus is different from expected by more than 10%, throw error
+
+  
 
   public:
 
@@ -144,7 +148,7 @@ class AuxTalon
      * @brief Setsup the Talon for operation and sets all configurations
      * @details Configures IO expander pins, runs a level 2 Self Diagnostic, and resets the counters 
      */ 
-    int begin(void);
+    String begin(time_t time, bool &criticalFault, bool &fault);
     int sleep(bool State);
 
     uint16_t counts[3] = {0}; //Used to store the register values after a read 
@@ -157,7 +161,7 @@ class AuxTalon
     
     // String errorTags[MAX_NUM_ERRORS]
     
-    int getData(time_t time);
+    String getData(time_t time);
     int restart();
     String selfDiagnostic(uint8_t diagnosticLevel = 4); //Default to just level 4 diagnostic 
     // int sleepMode(uint8_t mode) //DEFINE!
@@ -165,7 +169,7 @@ class AuxTalon
     String getErrors();
 
     bool automaticGainControl = true; ///<Flag to configure the automatic gain control for analog sensing (Default = true)
-    uint8_t samplesToAverage = 0; ///<Flag to configure the number of samples to average across for analog sensing (Default = 0)
+    uint8_t samplesToAverage = 128; ///<Flag to configure the number of samples to average across for analog sensing (Default = 128)
 
 
   private:
@@ -173,16 +177,18 @@ class AuxTalon
     const int ADR_ADS1115 = 0x49;
     const unsigned long adcReadTimeout = 10; //Wait at most 10ms for an updated reading
     const time_t maxTimeDelta = 0; //FIX!!! 
-    PACL9535A ioAlpha(0x20);
-    PACL9535A ioBeta(0x23);
-    PACL9535A ioGamma(0x24);
+    PCAL9535A ioAlpha; //ADR = 0x20
+    PCAL9535A ioBeta; //ADR = 0x23
+    PCAL9535A ioGamma; //ADR = 0x24
 
     int throwError(uint32_t error);
 
-    int16_t adcRead(uint8_t port); 
+    int16_t adcRead(uint8_t port, uint8_t gain); 
     int adcConfig(uint8_t configHigh, uint8_t configLow);
     int16_t readADCReg(uint8_t reg);
     int16_t readADCReg(); //Re-reads the previous address
+    void setPinDefaults();
+
 
     int clearCount(time_t time); 
     int readCounters();
@@ -219,9 +225,9 @@ class AuxTalon
     uint16_t getCount(uint8_t port);
 
 
-    static time_t clearTime = 0;
+    time_t clearTime = 0;
     // static time_t readTime = 0;
-    static bool initDone = false; //Used to keep track if the initaliztion has run - used by hasReset() 
+    bool initDone = false; //Used to keep track if the initaliztion has run - used by hasReset() 
     
 
     uint32_t errors[MAX_NUM_ERRORS] = {0};
@@ -233,6 +239,7 @@ class AuxTalon
     const uint8_t adcBaseConfigHigh = 0x01; //Single shot, blanked port and gain
     const uint8_t adcBaseConfigLow = 0x80; //128 sps
     const uint8_t adcGainConfigs[6] = {0x00, 0x02, 0x04, 0x06, 0x08, 0x10}; //6.144V, 4.096V, 2.048V, 1.024V, 0.512V, 0.256V
+    const float adcGainConv[6] = {0.1875, 0.125, 0.0625, 0.03125, 0.015625, 0.0078125}; //Multiply output by conversion value to get mV
     const uint8_t adcPortConfigs[4] = {0x40, 0x50, 0x60, 0x70}; //Port0, Port1, Port2, Port3
     const uint8_t adcStartConversion = 0x80; 
 };
