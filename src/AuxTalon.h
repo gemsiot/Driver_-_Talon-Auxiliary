@@ -131,6 +131,9 @@ class AuxTalon
   const uint32_t BUS_OUTOFRANGE = 0xFF90; //FIX! (low 2 bits are which port, 3 = 5V rail)
   const uint32_t IO_INIT_ERROR = 0xFFA0; //FIX! (Low 3 bits are returned error)
   const uint32_t ADC_INIT_ERROR = 0xFFB0; //FIX! (Low 3 bits are returned error)
+  const uint32_t INPUT_BUF_ERROR = 0xFFC0; //FIX! (Low 2 bits are which port, 3rd bit is Dx vs ODx input)
+  const uint32_t COUNTER_INCREMENT_ERROR = 0xFFD0; //FIX! (Low 2 bits are which port)
+  const uint32_t COUNTER_CLEAR_ERROR = 0xFFE0; //FIX!
   const float MAX_DISAGREE = 0.1; //If bus is different from expected by more than 10%, throw error
 
   
@@ -163,7 +166,7 @@ class AuxTalon
     
     String getData(time_t time);
     int restart();
-    String selfDiagnostic(uint8_t diagnosticLevel = 4); //Default to just level 4 diagnostic 
+    String selfDiagnostic(uint8_t diagnosticLevel = 4, time_t time = 0); //Default to just level 4 diagnostic, default to time = 0
     // int sleepMode(uint8_t mode) //DEFINE!
     // int reportErrors(uint32_t *errors, size_t length);
     String getErrors();

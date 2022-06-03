@@ -148,7 +148,7 @@ int AuxTalon::throwError(uint32_t error)
 	return numErrors;
 }
 
-String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel)
+String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 {
 	if(diagnosticLevel == 0) {
 		//TBD
@@ -162,9 +162,159 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel)
 
 	else if(diagnosticLevel == 2) {
 		//TBD
-		return "{\"lvl-2\":{}}";
+		String output = "{\"lvl-2\":{},";
+		String level3 = selfDiagnostic(3, time); //Call the lower level of self diagnostic 
+		level3 = level3.substring(1,level3.length() - 1); //Trim off opening and closing brace
+		output = output + level3; //Concatonate level 4 on top of level 3
+		output = output + "}"; //CLOSE JSON BLOB
+		return output;
+		// return "{\"lvl-2\":{}," + selfDiagnostic(3, time).substring(0, ) }";
 	}
 
+	else if(diagnosticLevel == 3) {
+		//TBD
+		// Serial.println(millis()); //DEBUG!
+		String output = "{\"lvl-3\":{"; //OPEN JSON BLOB
+		///////// TEST INPUT DRIVES //////////////
+		const int numPulses = 5; //Number of pulses to use for testing
+		for(int i = 0; i < 3; i++) {
+			ioBeta.digitalWrite(pinsBeta::OD1 + i, LOW); //Preempt the output as low
+			ioBeta.pinMode(pinsBeta::OD1 + i, OUTPUT); //Set line to output	
+			ioBeta.digitalWrite(pinsBeta::D1_SENSE + i, LOW); //Preempt low
+			ioBeta.pinMode(pinsBeta::D1_SENSE + i, OUTPUT); //Set to output to drive push-pull
+			ioBeta.pinMode(pinsBeta::OUT1 + i, INPUT); //Set as input so we can measure the output of the input buffer
+		}
+		clearCount(time); //Clear counters to start with 0 value
+		bool inputError = false; //Used to keep track if there is an error in the input driver circuit
+		for(int port = 0; port < 3; port++) {
+			for(int p = 0; p < numPulses; p++) { //Pulse input 5 times
+				if(ioBeta.digitalRead(pinsBeta::OUT1 + port) != HIGH) inputError = true; //If the OUTx line is not sitting high, there is an error in the input circuit
+				ioBeta.digitalWrite(pinsBeta::D1_SENSE + port, HIGH);
+				if(ioBeta.digitalRead(pinsBeta::OUT1 + port) != LOW) inputError = true; //If after toggling the Dx input high, the output does not go low there is an error in the input circuit 
+				delay(1);
+				ioBeta.digitalWrite(pinsBeta::D1_SENSE + port, LOW);
+				delay(1);
+			}
+			readCounters(); //Read in values after testing
+			// clearCount(time);
+			if(inputError) { //If the OUTx line did not change as expected when toggled, this is a buffer error
+				throwError(INPUT_BUF_ERROR | 0b0100 | port); //OR with port number and Dx indicator 
+			}
+			else if(counts[port] != numPulses) { //If OUTx line responded as expected, but we STILL did not end up with the correct count, then this is a counter problem 
+				throwError(COUNTER_INCREMENT_ERROR | port); 
+				// for(int i = 0; i < 3; i++) { //DEBUG!
+				// 	Serial.println(counts[i]); 
+				// }
+			}	
+			inputError = false; //Reset input error
+		}
+		clearCount(time); //Clear counters again
+		readCounters(); //Read in values after clearing 
+		if(counts[0] != 0 || counts[1] != 0 || counts[2] != 0) throwError(COUNTER_CLEAR_ERROR); //If counter does not clear correctly, throw error 
+		inputError = false; //Clear error flag for next test 
+		
+		for(int i = 0; i < 3; i++) {
+			ioBeta.digitalWrite(pinsBeta::D1_SENSE + i, LOW); //Drive all Dx_SENSE lines low to prevent erronious output ticks
+			ioBeta.digitalWrite(pinsBeta::OD1 + i, LOW); //Drive all ODx lines low to start
+		}
+	
+		for(int port = 0; port < 3; port++) {
+			for(int p = 0; p < numPulses; p++) { //Pulse input 5 times
+				if(ioBeta.digitalRead(pinsBeta::OUT1 + port) != HIGH) inputError = true; //If the OUTx line is not sitting low, there is an error in the input circuit
+				// ioBeta.digitalWrite(pinsBeta::OD1 + port, HIGH);
+				ioBeta.pinMode(pinsBeta::OD1 + port, INPUT); //Switch ODx to input to release to pullup (do this instead of push-pull to prevent output shorting)
+				if(ioBeta.digitalRead(pinsBeta::OUT1 + port) != LOW) inputError = true; //If after toggling the ODx input high, the output does not go low there is an error in the input circuit //FIX! switch to interrupt measurment for this part
+				delay(1);
+				// ioBeta.digitalWrite(pinsBeta::OD1 + port, LOW);
+				ioBeta.pinMode(pinsBeta::OD1 + port, OUTPUT); //Turn on ODx output to drive low
+				delay(1);
+			}
+			// readCounters(); //Read in values after testing
+			if(inputError) { //If the OUTx line did not change as expected when toggled, this is a buffer error
+				throwError(INPUT_BUF_ERROR | port); //OR with port number
+			}
+		}
+
+		///////////// IDENTIFY Dx INPUTS //////////
+		bool digitalInputOccupied[3] = {false}; //Used to store results of digital input testing
+		int digitalInputCurrentState[3] = {0}; //Used to store current state of digital input (0 = LOW, 1 = HIGH, -1 = N/A)
+
+		bool pullupVal = 0;
+		bool pulldownVal = 0;
+		for(int port = 0; port < 3; port++) {
+			ioBeta.pinMode(pinsBeta::D1_SENSE + port, INPUT_PULLUP); //Set given digital input pin as pullup
+			delay(1); //Wait for line to charge if floating
+			pullupVal = ioBeta.digitalRead(pinsBeta::D1_SENSE + port); //Read state when pullup is applied
+			ioBeta.pinMode(pinsBeta::D1_SENSE + port, INPUT_PULLDOWN); //Set given digital input pin as pulldown
+			delay(1);
+			pulldownVal = ioBeta.digitalRead(pinsBeta::D1_SENSE + port); //Read state when pullup is disconnected 
+			if(pullupVal == HIGH && pulldownVal == LOW) digitalInputOccupied[port] = false;
+			else digitalInputOccupied[port] = true;
+
+			if(digitalInputOccupied[port] == true) {
+				ioBeta.pinMode(pinsBeta::D1_SENSE, INPUT); //Return to high impedance input
+				digitalInputCurrentState[port] = ioBeta.digitalRead(pinsBeta::D1_SENSE + port); //Read in current value
+			}
+			else digitalInputCurrentState[port] = -1; //Set to N/A if the port is unoccupied  
+		}
+
+		String occupied = "\"Dx_USE\":[";
+		String currentState = "\"Dx_STATE\":[";
+		for(int i = 0; i < 3; i++) {
+			occupied = occupied + String(digitalInputOccupied[i]) + ",";
+			currentState = currentState + String(digitalInputCurrentState[i]) + ",";
+		}
+		occupied = occupied.substring(0, occupied.length() - 1) + "],"; //Trim off trailing ',' and close
+		currentState = currentState.substring(0, currentState.length() - 1) + "],"; //Trim off trailing ',' and close
+		output = output + occupied + currentState; //Concatonate together
+
+
+		for(int i = 0; i < 3; i++) { //Return pins to defaults
+			ioBeta.pinMode(pinsBeta::OD1 + i, INPUT); //Return to input	
+			ioBeta.pinMode(pinsBeta::D1_SENSE + i, INPUT); //Return to input
+			ioBeta.pinMode(pinsBeta::OUT1 + i, INPUT); //Keep as input
+		}
+		clearCount(time); //Clear counters again //Total time between start and this clear event is < 300ms, ok to use same timestamp
+		// Serial.println(millis()); //DEBUG!
+
+		////////////// TEST ANALOG OUTPUTS /////////////////
+		float senseOpen[3] = {0};
+		float senseDischarged[3] = {0};
+		float senseLoaded[3] = {0};
+		unsigned long dischargePeriod = 250; //Time to wait while discharging in ms
+
+		for(int port = 0; port < 3; port++) {
+			senseOpen[port] = float(adcRead(port, 0))*(adcGainConv[0]); //Read baseline port value at full range
+			ioAlpha.pinMode(pinsAlpha::ACTRL1 + port, OUTPUT); //Set MOSFET drive to output
+			ioAlpha.digitalWrite(pinsAlpha::ACTRL1 + port, HIGH); //Turn on MOSFET to discharge output
+			delay(dischargePeriod); //Wait for RC circuit to discharge
+			senseLoaded[port] = float(adcRead(port, 0))*(adcGainConv[0]); //Read fully discharged value
+			ioAlpha.digitalWrite(pinsAlpha::ACTRL1 + port, LOW); //Turn MOSFET off to release line
+			senseDischarged[port] = float(adcRead(port, 0))*(adcGainConv[0]); //Read in discharged value
+		}
+		output = output + "\"AIN_SENSE\":{"; //Open array
+
+		String open = "\"OPEN\":[";
+		String discharged = "\"DIS\":[";
+		String loaded = "\"LOAD\":[";
+
+		for(int i = 0; i < 3; i++) {
+			open = open + String(senseOpen[i], 4) + ",";
+			discharged = discharged + String(senseDischarged[i], 4) + ",";
+			loaded = loaded + String(senseLoaded[i], 4) + ",";
+		}
+		open = open.substring(0, open.length() - 1) + "],"; //Trim off trailing ',' and close
+		discharged = discharged.substring(0, discharged.length() - 1) + "],"; //Trim off trailing ',' and close
+		loaded = loaded.substring(0, loaded.length() - 1) + "]"; //Trim off trailing ',' and close
+
+		output = output + open + discharged + loaded + "}},"; //Close AIN_SENSE
+		String level4 = selfDiagnostic(4); //Call the lower level of self diagnostic 
+		level4 = level4.substring(1,level4.length() - 1); //Trim off opening and closing brace
+		output = output + level4; //Concatonate level 4 on top of level 3
+		output = output + "}"; //CLOSE JSON BLOB
+		return output;
+
+ 	}
 
 	else if(diagnosticLevel == 4) {
 		// String output = selfDiagnostic(5); //Call the lower level of self diagnostic 
@@ -187,11 +337,11 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel)
  			ioAlpha.digitalWrite(pinsAlpha::MUX_SEL1, ((i >> 1) & 0x01)); //Write high bit of counter to MUX_SEL1
 			ioAlpha.digitalWrite(pinsAlpha::MUX_SEL2, LOW); //Read external ports first
 			delay(1); //DEBUG!
-			portOutputVoltage[i] = float(adcRead(3, 0))*(0.1875); //Read from port 3 with no gain, convert to mV
+			portOutputVoltage[i] = float(adcRead(3, 0))*(adcGainConv[0]); //Read from port 3 with no gain, convert to mV
 			portOutputString = portOutputString + String(portOutputVoltage[i], 4) + ","; //Use max decimal places for min ADC resolution x.1875 
 			ioAlpha.digitalWrite(pinsAlpha::MUX_SEL2, HIGH); //Read internal ports next
 			delay(1); //DEBUG!
-			portInputVoltage[i] = float(adcRead(3, 0))*(0.1875); //Read from port 3 with no gain, convert to mV
+			portInputVoltage[i] = float(adcRead(3, 0))*(adcGainConv[0]); //Read from port 3 with no gain, convert to mV
 			portInputString = portInputString + String(portInputVoltage[i], 4) + ","; //Use max decimal places for min ADC resolution x.1875 
 			if((portInputVoltage[i] - portOutputVoltage[i])/portInputVoltage[i] > MAX_DISAGREE) throwError(BUS_DISAGREE | i); //Throw port disagree error and note position of port
 		}
@@ -215,7 +365,7 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel)
 		ioAlpha.digitalWrite(pinsAlpha::MUX_SEL0, 1); //Connect MUX to 5V rail
 		ioAlpha.digitalWrite(pinsAlpha::MUX_SEL1, 1);
 		ioAlpha.digitalWrite(pinsAlpha::MUX_SEL2, HIGH); 
-		float busVoltage_5V = float(adcRead(3, 0))*(0.1875); //Read 5V port with no gain, convert to mV
+		float busVoltage_5V = float(adcRead(3, 0))*(adcGainConv[0]); //Read 5V port with no gain, convert to mV
 		if((busVoltage_5V - 5000)/5000 > MAX_DISAGREE) throwError(BUS_OUTOFRANGE | 3); //Throw out of range error and note position of port
 
 		output = output + portInputString + portOutputString + ",\"5V0_RAIL\":" + String(busVoltage_5V, 4) +  "},"; //Concatonate strings and cap
@@ -396,7 +546,7 @@ int AuxTalon::updateCount()
 int AuxTalon::clearCount(time_t time)
 {
 	// if(time > readTime && time > clearTime && clearTime != 0 && readTime != 0) { //Make sure new time is logically consistent with previous reading time and clearing time
-	if(time > clearTime && clearTime != 0) { //Make sure new time is logically consistent with previous reading time and clearing time 
+	if(time > clearTime && (clearTime != 0 || initDone == false)) { //Make sure new time is logically consistent with previous reading time and clearing time, give pass to bad clearTime for first run  
 		clearTime = time; //Swap clear time for read time  
 		timeBaseGood = true; //FIX - Check in more aggresive way??
 	}
@@ -407,7 +557,7 @@ int AuxTalon::clearCount(time_t time)
 		timeBaseGood = false; //If any of time times are inconsistent, set the timebase to bad 
 		throwError(TIME_BAD);
 	}
-	else if((time - clearTime) > maxTimeDelta) {
+	else if((time - clearTime) > maxTimeDelta && initDone == true) { //Only trigger if delta is exceeded after initial setup. On setup, time will go from 0 to correct time, this will trigger excess delta erroniously 
 		clearTime = time; //Copy time value over 
 		timeBaseGood = false; //Indicate that time base is not secure, but not confident in the failure 
 		throwError(TIME_DELTA_EXCEEDED);
