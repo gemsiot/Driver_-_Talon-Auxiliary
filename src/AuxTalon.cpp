@@ -16,9 +16,10 @@ Distributed as-is; no warranty is given.
 
 #include <AuxTalon.h>
 
-AuxTalon::AuxTalon(uint8_t talonPort, uint8_t version) : ioAlpha(0x20), ioBeta(0x23), ioGamma(0x24)
+AuxTalon::AuxTalon(uint8_t talonPort, uint8_t hardwareVersion) : ioAlpha(0x20), ioBeta(0x23), ioGamma(0x24)
 {
-	
+	port = talonPort; //Copy to local
+	version = hardwareVersion; //Copy to local
 }
 
 String AuxTalon::begin(time_t time, bool &criticalFault, bool &fault) 
@@ -150,23 +151,25 @@ int AuxTalon::throwError(uint32_t error)
 
 String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 {
+	String output = "{\"Talon-Aux\":{";
 	if(diagnosticLevel == 0) {
 		//TBD
-		return "{\"lvl-0\":{}}";
+		return output + "\"lvl-0\":{},\"Pos\":[" + String(port) + "]}}";
 	}
 
 	else if(diagnosticLevel == 1) {
 		//TBD
-		return "{\"lvl-1\":{}}";
+		return output + "\"lvl-1\":{},\"Pos\":[" + String(port) + "]}}";
 	}
 
 	else if(diagnosticLevel == 2) {
 		//TBD
-		String output = "{\"lvl-2\":{},";
+		output = output + "\"lvl-2\":{},";
 		String level3 = selfDiagnostic(3, time); //Call the lower level of self diagnostic 
 		level3 = level3.substring(1,level3.length() - 1); //Trim off opening and closing brace
 		output = output + level3; //Concatonate level 4 on top of level 3
 		output = output + "}"; //CLOSE JSON BLOB
+		// return output + ",\"Pos\":[" + String(port) + "]}}";
 		return output;
 		// return "{\"lvl-2\":{}," + selfDiagnostic(3, time).substring(0, ) }";
 	}
@@ -174,7 +177,7 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 	else if(diagnosticLevel == 3) {
 		//TBD
 		// Serial.println(millis()); //DEBUG!
-		String output = "{\"lvl-3\":{"; //OPEN JSON BLOB
+		output = output + "\"lvl-3\":{"; //OPEN JSON BLOB
 		///////// TEST INPUT DRIVES //////////////
 		const int numPulses = 5; //Number of pulses to use for testing
 		for(int i = 0; i < 3; i++) {
@@ -312,6 +315,7 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 		level4 = level4.substring(1,level4.length() - 1); //Trim off opening and closing brace
 		output = output + level4; //Concatonate level 4 on top of level 3
 		output = output + "}"; //CLOSE JSON BLOB
+		// return output + ",\"Pos\":[" + String(port) + "]}}";
 		return output;
 
  	}
@@ -319,7 +323,7 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 	else if(diagnosticLevel == 4) {
 		// String output = selfDiagnostic(5); //Call the lower level of self diagnostic 
 		// output = output.substring(0,output.length() - 1); //Trim off closing brace
-		String output = "{\"lvl-4\":{"; //OPEN JSON BLOB
+		String output = output + "\"lvl-4\":{"; //OPEN JSON BLOB
 
 		ioAlpha.digitalWrite(pinsAlpha::EN1, HIGH); //Make sure all ports are enabled before testing 
 		ioAlpha.digitalWrite(pinsAlpha::EN2, HIGH); 
@@ -373,12 +377,13 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 		level5 = level5.substring(1,level5.length() - 1); //Trim off opening and closing brace
 		output = output + level5; //Concatonate level 5 on top of level 4
 		output = output + "}"; //CLOSE JSON BLOB
+		// return output + ",\"Pos\":[" + String(port) + "]}}";
 		return output;
 
 	}
 
 	else if(diagnosticLevel == 5) {
-		String output = "{\"lvl-5\":{"; //OPEN JSON BLOB
+		String output = output + "\"lvl-5\":{"; //OPEN JSON BLOB
 		for(int i = 0; i < 3; i++) {
 			overflow[i] = ioBeta.getInterrupt(pinsBeta::OVF1 + i); //Read in overflow values
 			faults[i] = ioAlpha.getInterrupt(pinsAlpha::FAULT1 + i); //Read in fault values
@@ -410,10 +415,12 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 		output = output + "}"; //CLOSE JSON BLOB, 
 		ioAlpha.clearInterrupt(PCAL9535A::IntAge::BOTH); //Clear all interrupts on Alpha
 		ioBeta.clearInterrupt(PCAL9535A::IntAge::BOTH); //Clear all interrupts on Beta
+		// return output + ",\"Pos\":[" + String(port) + "]}}";
 		return output;
 	}
-
-	return "{}"; //Return null if reach end	
+	else return ""; //Return empty string if reaches this point 
+	// return "{}"; //Return null if reach end	
+	// return output + ",\"Pos\":[" + String(port) + "]}}"; //Append position and return
 }
 
 int AuxTalon::restart()
@@ -445,7 +452,7 @@ String AuxTalon::getData(time_t time)
 	updateCount(time); //Update counter values
 	updateAnalog(); //Update analog readings
 	
-	String output = "{\"OB\":{"; //OPEN JSON BLOB
+	String output = "{\"AUX_TALON\":{"; //OPEN JSON BLOB
 
 	String analogData = "\"AIN\":[";
 	String analogAvgData = "\"AIN_AVG\":[";
@@ -464,7 +471,8 @@ String AuxTalon::getData(time_t time)
 
 	output = output + analogData + analogAvgData + countData + rateData; //Concatonate all sub-strings
 	output = output + "\"START\":" + String((long) startTime) + ","; //Concatonate start time
-	output = output + "\"STOP\":" + String((long) stopTime); //Concatonate stop time
+	output = output + "\"STOP\":" + String((long) stopTime) + ","; //Concatonate stop time
+	output = output + "\"Pos\":[" + String(port) + "]"; //Concatonate position 
 	output = output + "}}"; //CLOSE JSON BLOB
 	return output;
 
@@ -797,4 +805,45 @@ bool AuxTalon::hasReset()
 	uint16_t outputState = ioAlpha.readWord(0x06, error); //Read from configuration register 
 	if(((outputState >> pinsAlpha::MUX_EN) & 0x01) == 0x00) return false; //If output is still 
 	else return true; //If the MUX_EN pin is no longer configured as an output, assume the Talon has reset
+}
+
+String AuxTalon::getMetadata()
+{
+	Wire.beginTransmission(0x58); //Write to UUID range of EEPROM
+	Wire.write(0x98); //Point to start of UUID
+	int error = Wire.endTransmission();
+	// uint64_t uuid = 0;
+	String uuid = "";
+
+	if(error != 0) throwError(EEPROM_I2C_ERROR | error);
+	else {
+		uint8_t val = 0;
+		Wire.requestFrom(0x58, 8); //EEPROM address
+		for(int i = 0; i < 8; i++) {
+			val = Wire.read();//FIX! Wait for result??
+			// uuid = uuid | (val << (8 - i)); //Concatonate into full UUID
+			uuid = uuid + String(val, HEX); //Print out each hex byte
+			// Serial.print(Val, HEX); //Print each hex byte from left to right
+			// if(i < 7) Serial.print('-'); //Print formatting chracter, don't print on last pass
+			if(i < 7) uuid = uuid + "-"; //Print formatting chracter, don't print on last pass
+		}
+	}
+
+	String metadata = "{\"Talon-Aux\":{";
+	if(error == 0) metadata = metadata + "\"SN\":\"" + uuid + "\","; //Append UUID only if read correctly, skip otherwise 
+	metadata = metadata + "\"Mk\":\"v" + String(version >> 4, HEX) + "." + String(version & 0x0F, HEX) + "\","; //Report version as modded BCD
+	metadata = metadata + "\"Pos\":[" + String(port) + "]"; //Concatonate position 
+	metadata = metadata + "}}"; //CLOSE  
+	return metadata; 
+}
+
+uint8_t AuxTalon::totalErrors()
+{
+	return numErrors;
+}
+
+bool AuxTalon::ovfErrors()
+{
+	if(numErrors > MAX_NUM_ERRORS) return true;
+	else return false;
 }

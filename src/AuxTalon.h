@@ -48,6 +48,8 @@ Distributed as-is; no warranty is given.
 #include "Arduino.h"
 #include <Wire.h>
 #include "PCAL9535A.h"
+#include <Sensor.h>
+#include <Talon.h>
 // #include "Adafruit_ADS1015.h"
 
 // enum GroupMode{
@@ -112,7 +114,7 @@ namespace pinsBeta
  * @class AuxTalon
  * @brief Library for the Auxiliar Talon interfacing
  */
-class AuxTalon
+class AuxTalon: public Sensor, public Talon
 {
   constexpr static  int DEAFULT_PORT = 4; ///<Use port 4 by default
   constexpr static  int DEFAULT_VERSION = 0x14; ///<Use hardware version v1.4 by default
@@ -134,6 +136,7 @@ class AuxTalon
   const uint32_t INPUT_BUF_ERROR = 0xFFC0; //FIX! (Low 2 bits are which port, 3rd bit is Dx vs ODx input)
   const uint32_t COUNTER_INCREMENT_ERROR = 0xFFD0; //FIX! (Low 2 bits are which port)
   const uint32_t COUNTER_CLEAR_ERROR = 0xFFE0; //FIX!
+  const uint32_t EEPROM_I2C_ERROR = 0xFFF0; //FIX! (Low 3 bits are returned error)
   const float MAX_DISAGREE = 0.1; //If bus is different from expected by more than 10%, throw error
 
   
@@ -170,6 +173,9 @@ class AuxTalon
     // int sleepMode(uint8_t mode) //DEFINE!
     // int reportErrors(uint32_t *errors, size_t length);
     String getErrors();
+    String getMetadata();
+    uint8_t totalErrors();
+    bool ovfErrors();
 
     bool automaticGainControl = true; ///<Flag to configure the automatic gain control for analog sensing (Default = true)
     uint8_t samplesToAverage = 128; ///<Flag to configure the number of samples to average across for analog sensing (Default = 128)
@@ -237,7 +243,8 @@ class AuxTalon
     uint8_t numErrors = 0; //Used to track the index of errors array
     bool errorOverwrite = false; //Used to track if errors have been overwritten in time since last report
     bool timeBaseGood = false; //Used to keep track of the valitity of the current timebase
-
+    uint8_t port = 0; //Used to keep track of which port the Talon is connected to on Kestrel
+    uint8_t version = 0; //FIX! This should be read from EEPROM in future 
     //////// ADC CONFIG VALS //////////////
     const uint8_t adcBaseConfigHigh = 0x01; //Single shot, blanked port and gain
     const uint8_t adcBaseConfigLow = 0x80; //128 sps
