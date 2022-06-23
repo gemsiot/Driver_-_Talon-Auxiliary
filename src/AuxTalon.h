@@ -50,6 +50,7 @@ Distributed as-is; no warranty is given.
 #include "PCAL9535A.h"
 #include <Sensor.h>
 #include <Talon.h>
+#include <GlobalPins.h>
 // #include "Adafruit_ADS1015.h"
 
 // enum GroupMode{
@@ -137,6 +138,7 @@ class AuxTalon: public Sensor, public Talon
   const uint32_t COUNTER_INCREMENT_ERROR = 0xFFD0; //FIX! (Low 2 bits are which port)
   const uint32_t COUNTER_CLEAR_ERROR = 0xFFE0; //FIX!
   const uint32_t EEPROM_I2C_ERROR = 0xFFF0; //FIX! (Low 3 bits are returned error)
+  const uint32_t PORT_RANGE_ERROR = 0xF000; //FIX! 
   const float MAX_DISAGREE = 0.1; //If bus is different from expected by more than 10%, throw error
 
   
@@ -176,19 +178,36 @@ class AuxTalon: public Sensor, public Talon
     String getMetadata();
     uint8_t totalErrors();
     bool ovfErrors();
+    // uint8_t getPort();
+    void setTalonPort(uint8_t port_);
+    // bool isTalon() {
+    //   return true;
+    // };
+    int enableData(uint8_t port, bool state);
+    int enablePower(uint8_t port, bool state);
+    int disableDataAll();
+    int disablePowerAll();
+    uint8_t getTalonPort() {
+      return port + 1;
+    }
+    bool isPresent();
+
 
     bool automaticGainControl = true; ///<Flag to configure the automatic gain control for analog sensing (Default = true)
     uint8_t samplesToAverage = 128; ///<Flag to configure the number of samples to average across for analog sensing (Default = 128)
-
+   
 
   private:
     // Adafruit_ADS1115 ads(0x49); 
     const int ADR_ADS1115 = 0x49;
     const unsigned long adcReadTimeout = 10; //Wait at most 10ms for an updated reading
     const time_t maxTimeDelta = 0; //FIX!!! 
+    uint8_t numPorts = 3; 
     PCAL9535A ioAlpha; //ADR = 0x20
     PCAL9535A ioBeta; //ADR = 0x23
     PCAL9535A ioGamma; //ADR = 0x24
+
+    
 
     int throwError(uint32_t error);
 
@@ -233,6 +252,8 @@ class AuxTalon: public Sensor, public Talon
      */ 
     uint16_t getCount(uint8_t port);
 
+    
+
 
     time_t clearTime = 0;
     // static time_t readTime = 0;
@@ -244,6 +265,7 @@ class AuxTalon: public Sensor, public Talon
     bool errorOverwrite = false; //Used to track if errors have been overwritten in time since last report
     bool timeBaseGood = false; //Used to keep track of the valitity of the current timebase
     uint8_t port = 0; //Used to keep track of which port the Talon is connected to on Kestrel
+    uint32_t portErrorCode = 0; //Used to easily OR with error codes to add the Talon port
     uint8_t version = 0; //FIX! This should be read from EEPROM in future 
     //////// ADC CONFIG VALS //////////////
     const uint8_t adcBaseConfigHigh = 0x01; //Single shot, blanked port and gain

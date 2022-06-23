@@ -18,7 +18,7 @@ Distributed as-is; no warranty is given.
 
 AuxTalon::AuxTalon(uint8_t talonPort, uint8_t hardwareVersion) : ioAlpha(0x20), ioBeta(0x23), ioGamma(0x24)
 {
-	port = talonPort; //Copy to local
+	port = talonPort - 1; //Copy to local //FIX!
 	version = hardwareVersion; //Copy to local
 }
 
@@ -154,27 +154,29 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 	String output = "{\"Talon-Aux\":{";
 	if(diagnosticLevel == 0) {
 		//TBD
-		return output + "\"lvl-0\":{},\"Pos\":[" + String(port) + "]}}";
+		output = output + "\"lvl-0\":{},\"Pos\":[" + String(port) + "]}},";
+		// return output + "\"lvl-0\":{},\"Pos\":[" + String(port) + "]}}";
 	}
 
-	else if(diagnosticLevel == 1) {
+	if(diagnosticLevel <= 1) {
 		//TBD
-		return output + "\"lvl-1\":{},\"Pos\":[" + String(port) + "]}}";
+		output = output + "\"lvl-1\":{},\"Pos\":[" + String(port) + "]}},";
 	}
 
-	else if(diagnosticLevel == 2) {
+	if(diagnosticLevel <= 2) {
 		//TBD
-		output = output + "\"lvl-2\":{},";
-		String level3 = selfDiagnostic(3, time); //Call the lower level of self diagnostic 
-		level3 = level3.substring(1,level3.length() - 1); //Trim off opening and closing brace
-		output = output + level3; //Concatonate level 4 on top of level 3
-		output = output + "}"; //CLOSE JSON BLOB
+		output = output + "\"lvl-2\":{THisisadummystringforthepusrposesoftestingthewraparoundfunctionalityoftheparserfordealingwithveryveryverylongstringsofstuffTHisisadummystringforthepusrposesoftestingthewraparoundfunctionalityoftheparserfordealingwithveryveryverylongstringsofstuff},";
+		// String level3 = selfDiagnostic(3, time); //Call the lower level of self diagnostic 
+		// level3 = level3.substring(1,level3.length() - 1); //Trim off opening and closing brace
+		// output = output + level3; //Concatonate level 4 on top of level 3
+		// output = output + "},"; //CLOSE JSON BLOB
 		// return output + ",\"Pos\":[" + String(port) + "]}}";
-		return output;
+		// return output;
 		// return "{\"lvl-2\":{}," + selfDiagnostic(3, time).substring(0, ) }";
+		pinMode(KestrelPins::PortAPins[port], INPUT); //DEBUG!
 	}
 
-	else if(diagnosticLevel == 3) {
+	if(diagnosticLevel <= 3) {
 		//TBD
 		// Serial.println(millis()); //DEBUG!
 		output = output + "\"lvl-3\":{"; //OPEN JSON BLOB
@@ -311,19 +313,19 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 		loaded = loaded.substring(0, loaded.length() - 1) + "]"; //Trim off trailing ',' and close
 
 		output = output + open + discharged + loaded + "}},"; //Close AIN_SENSE
-		String level4 = selfDiagnostic(4); //Call the lower level of self diagnostic 
-		level4 = level4.substring(1,level4.length() - 1); //Trim off opening and closing brace
-		output = output + level4; //Concatonate level 4 on top of level 3
-		output = output + "}"; //CLOSE JSON BLOB
+		// String level4 = selfDiagnostic(4); //Call the lower level of self diagnostic 
+		// level4 = level4.substring(1,level4.length() - 1); //Trim off opening and closing brace
+		// output = output + level4; //Concatonate level 4 on top of level 3
+		// output = output + "},"; //CLOSE JSON BLOB
 		// return output + ",\"Pos\":[" + String(port) + "]}}";
-		return output;
+		// return output;
 
  	}
 
-	else if(diagnosticLevel == 4) {
+	if(diagnosticLevel <= 4) {
 		// String output = selfDiagnostic(5); //Call the lower level of self diagnostic 
 		// output = output.substring(0,output.length() - 1); //Trim off closing brace
-		String output = output + "\"lvl-4\":{"; //OPEN JSON BLOB
+		output = output + "\"lvl-4\":{"; //OPEN JSON BLOB
 
 		ioAlpha.digitalWrite(pinsAlpha::EN1, HIGH); //Make sure all ports are enabled before testing 
 		ioAlpha.digitalWrite(pinsAlpha::EN2, HIGH); 
@@ -373,17 +375,17 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 		if((busVoltage_5V - 5000)/5000 > MAX_DISAGREE) throwError(BUS_OUTOFRANGE | 3); //Throw out of range error and note position of port
 
 		output = output + portInputString + portOutputString + ",\"5V0_RAIL\":" + String(busVoltage_5V, 4) +  "},"; //Concatonate strings and cap
-		String level5 = selfDiagnostic(5); //Call the lower level of self diagnostic 
-		level5 = level5.substring(1,level5.length() - 1); //Trim off opening and closing brace
-		output = output + level5; //Concatonate level 5 on top of level 4
-		output = output + "}"; //CLOSE JSON BLOB
+		// String level5 = selfDiagnostic(5); //Call the lower level of self diagnostic 
+		// level5 = level5.substring(1,level5.length() - 1); //Trim off opening and closing brace
+		// output = output + level5; //Concatonate level 5 on top of level 4
+		// output = output + "},"; //CLOSE JSON BLOB
 		// return output + ",\"Pos\":[" + String(port) + "]}}";
-		return output;
+		// return output;
 
 	}
 
-	else if(diagnosticLevel == 5) {
-		String output = output + "\"lvl-5\":{"; //OPEN JSON BLOB
+	if(diagnosticLevel <= 5) {
+		output = output + "\"lvl-5\":{"; //OPEN JSON BLOB
 		for(int i = 0; i < 3; i++) {
 			overflow[i] = ioBeta.getInterrupt(pinsBeta::OVF1 + i); //Read in overflow values
 			faults[i] = ioAlpha.getInterrupt(pinsAlpha::FAULT1 + i); //Read in fault values
@@ -412,13 +414,15 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 			output = output.substring(0, output.length() - 1); //Trim trailing ',' is present
 		}
 		output = output + "]}"; // close array, close pair
-		output = output + "}"; //CLOSE JSON BLOB, 
+		// output = output + "}"; //CLOSE JSON BLOB, 
 		ioAlpha.clearInterrupt(PCAL9535A::IntAge::BOTH); //Clear all interrupts on Alpha
 		ioBeta.clearInterrupt(PCAL9535A::IntAge::BOTH); //Clear all interrupts on Beta
 		// return output + ",\"Pos\":[" + String(port) + "]}}";
-		return output;
+		// return output;
 	}
-	else return ""; //Return empty string if reaches this point 
+	return output + ",\"Pos\":[" + String(port + 1) + "]}}"; //Write position in logical form - Return compleated closed output
+	// else return ""; //Return empty string if reaches this point 
+
 	// return "{}"; //Return null if reach end	
 	// return output + ",\"Pos\":[" + String(port) + "]}}"; //Append position and return
 }
@@ -846,4 +850,60 @@ bool AuxTalon::ovfErrors()
 {
 	if(numErrors > MAX_NUM_ERRORS) return true;
 	else return false;
+}
+
+// uint8_t AuxTalon::getTalonPort()
+// {
+// 	return port + 1; //Switch to rational counting
+// }
+
+// uint8_t AuxTalon::getTalon()
+// {
+// 	return port;
+// }
+
+void AuxTalon::setTalonPort(uint8_t port_)
+{
+	// if(port_ > numPorts || port_ == 0) throwError(PORT_RANGE_ERROR | portErrorCode); //If commanded value is out of range, throw error 
+	if(port_ > 4 || port_ == 0) throwError(PORT_RANGE_ERROR | portErrorCode); //If commanded value is out of range, throw error //FIX! How to deal with magic number? This is the number of ports on KESTREL, how do we know that??
+	else { //If in range, update the port values
+		port = port_ - 1; //Set global port value in index counting
+		portErrorCode = (port + 1) << 4; //Set port error code in rational counting 
+	}
+}
+
+int AuxTalon::disableDataAll()
+{
+	for(int i = 1; i <= numPorts; i++) {
+		enableData(i, false);
+	}
+	return 0; //DEBUG!
+}
+
+int AuxTalon::disablePowerAll()
+{
+	for(int i = 1; i <= numPorts; i++) {
+		enablePower(i, false);
+	}
+	return 0; //DEBUG!
+}
+
+int AuxTalon::enableData(uint8_t port, bool state)
+{
+	return 0; //DEBUG!
+}
+
+int AuxTalon::enablePower(uint8_t port, bool state)
+{
+	return 0; //DEBUG!
+}
+
+bool AuxTalon::isPresent()
+{
+	//FIX! Update for more complete interrogation 
+	Wire.beginTransmission(0x23);
+	int error = Wire.endTransmission();
+	if(error == 0) return true;
+	else return false;
+	// return false; //DEBUG!
 }
