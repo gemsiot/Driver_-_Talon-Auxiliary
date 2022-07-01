@@ -151,7 +151,7 @@ class AuxTalon: public Sensor, public Talon
      * * @param[in] version: Describes the hardware version of the Talon to be used 
      * @details Serves only to copy set global values of port and version
      */    
-    AuxTalon(uint8_t talonPort = DEAFULT_PORT, uint8_t version = DEFAULT_VERSION); 
+    AuxTalon(uint8_t talonPort_ = DEAFULT_PORT, uint8_t version = DEFAULT_VERSION); 
     /**
      * @brief Setsup the Talon for operation and sets all configurations
      * @details Configures IO expander pins, runs a level 2 Self Diagnostic, and resets the counters 
@@ -188,15 +188,18 @@ class AuxTalon: public Sensor, public Talon
     int disableDataAll();
     int disablePowerAll();
     uint8_t getTalonPort() {
-      return port + 1;
+      return talonPort + 1;
     }
     bool isPresent();
+    uint8_t getNumPorts() {
+      return numPorts;
+    }
 
-
+    // const uint8_t sensorInterface = BusType::NONE;
     bool automaticGainControl = true; ///<Flag to configure the automatic gain control for analog sensing (Default = true)
     uint8_t samplesToAverage = 128; ///<Flag to configure the number of samples to average across for analog sensing (Default = 128)
    
-
+  
   private:
     // Adafruit_ADS1115 ads(0x49); 
     const int ADR_ADS1115 = 0x49;
@@ -264,7 +267,7 @@ class AuxTalon: public Sensor, public Talon
     uint8_t numErrors = 0; //Used to track the index of errors array
     bool errorOverwrite = false; //Used to track if errors have been overwritten in time since last report
     bool timeBaseGood = false; //Used to keep track of the valitity of the current timebase
-    uint8_t port = 0; //Used to keep track of which port the Talon is connected to on Kestrel
+    uint8_t talonPort = 0; //Used to keep track of which port the Talon is connected to on Kestrel
     uint32_t portErrorCode = 0; //Used to easily OR with error codes to add the Talon port
     uint8_t version = 0; //FIX! This should be read from EEPROM in future 
     //////// ADC CONFIG VALS //////////////

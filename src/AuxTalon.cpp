@@ -16,10 +16,11 @@ Distributed as-is; no warranty is given.
 
 #include <AuxTalon.h>
 
-AuxTalon::AuxTalon(uint8_t talonPort, uint8_t hardwareVersion) : ioAlpha(0x20), ioBeta(0x23), ioGamma(0x24)
+AuxTalon::AuxTalon(uint8_t talonPort_, uint8_t hardwareVersion) : ioAlpha(0x20), ioBeta(0x23), ioGamma(0x24)
 {
-	port = talonPort - 1; //Copy to local //FIX!
+	talonPort = talonPort_ - 1; //Copy to local //FIX!
 	version = hardwareVersion; //Copy to local
+	talonInterface = BusType::NONE; 
 }
 
 String AuxTalon::begin(time_t time, bool &criticalFault, bool &fault) 
@@ -120,11 +121,11 @@ String AuxTalon::getErrors()
 	// 	}
 	// 	return 0; //Return success indication
 	// }
-	String output = "{\"ERRORS\":{"; // OPEN JSON BLOB
+	String output = "{\"Talon-Aux\":{"; // OPEN JSON BLOB
 	output = output + "\"CODES\":["; //Open codes pair
 
 	for(int i = 0; i < min(MAX_NUM_ERRORS, numErrors); i++) { //Interate over used element of array without exceeding bounds
-		output = output + String(errors[i]) + ","; //Add each error code
+		output = output + "\"0x" + String(errors[i], HEX) + "\","; //Add each error code
 		errors[i] = 0; //Clear errors as they are read
 	}
 	if(output.substring(output.length() - 1).equals(",")) {
@@ -134,7 +135,8 @@ String AuxTalon::getErrors()
 	output =  output + "\"OW\":"; //Open state pair
 	if(numErrors > MAX_NUM_ERRORS) output = output + "1,"; //If overwritten, indicate the overwrite is true
 	else output = output + "0,"; //Otherwise set it as clear
-	output = output + "\"NUM\":" + String(numErrors); //Append number of errors
+	output = output + "\"NUM\":" + String(numErrors) + ","; //Append number of errors
+	output = output + "\"Pos\":[" + String(talonPort + 1) + "]"; //Concatonate position 
 	output = output + "}}"; //CLOSE JSON BLOB
 	numErrors = 0; //Clear error count
 	return output;
@@ -154,18 +156,18 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 	String output = "{\"Talon-Aux\":{";
 	if(diagnosticLevel == 0) {
 		//TBD
-		output = output + "\"lvl-0\":{},\"Pos\":[" + String(port) + "]}},";
+		output = output + "\"lvl-0\":{},\"Pos\":[" + String(talonPort) + "]}},";
 		// return output + "\"lvl-0\":{},\"Pos\":[" + String(port) + "]}}";
 	}
 
 	if(diagnosticLevel <= 1) {
 		//TBD
-		output = output + "\"lvl-1\":{},\"Pos\":[" + String(port) + "]}},";
+		output = output + "\"lvl-1\":{},\"Pos\":[" + String(talonPort) + "]}},";
 	}
 
 	if(diagnosticLevel <= 2) {
 		//TBD
-		output = output + "\"lvl-2\":{THisisadummystringforthepusrposesoftestingthewraparoundfunctionalityoftheparserfordealingwithveryveryverylongstringsofstuffTHisisadummystringforthepusrposesoftestingthewraparoundfunctionalityoftheparserfordealingwithveryveryverylongstringsofstuff},";
+		output = output + "\"lvl-2\":{\"Dummy\":\"THisisadummystringforthepusrposesoftestingthewraparoundfunctionalityoftheparserfordealingwithveryveryverylongstringsofstuffTHisisadummystringforthepusrposesoftestingthewraparoundfunctionalityoftheparserfordealingwithveryveryverylongstringsofstuff\"},";
 		// String level3 = selfDiagnostic(3, time); //Call the lower level of self diagnostic 
 		// level3 = level3.substring(1,level3.length() - 1); //Trim off opening and closing brace
 		// output = output + level3; //Concatonate level 4 on top of level 3
@@ -173,7 +175,7 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 		// return output + ",\"Pos\":[" + String(port) + "]}}";
 		// return output;
 		// return "{\"lvl-2\":{}," + selfDiagnostic(3, time).substring(0, ) }";
-		pinMode(KestrelPins::PortAPins[port], INPUT); //DEBUG!
+		pinMode(KestrelPins::PortAPins[talonPort], INPUT); //DEBUG!
 	}
 
 	if(diagnosticLevel <= 3) {
@@ -420,7 +422,7 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 		// return output + ",\"Pos\":[" + String(port) + "]}}";
 		// return output;
 	}
-	return output + ",\"Pos\":[" + String(port + 1) + "]}}"; //Write position in logical form - Return compleated closed output
+	return output + ",\"Pos\":[" + String(talonPort + 1) + "]}}"; //Write position in logical form - Return compleated closed output
 	// else return ""; //Return empty string if reaches this point 
 
 	// return "{}"; //Return null if reach end	
@@ -456,7 +458,7 @@ String AuxTalon::getData(time_t time)
 	updateCount(time); //Update counter values
 	updateAnalog(); //Update analog readings
 	
-	String output = "{\"AUX_TALON\":{"; //OPEN JSON BLOB
+	String output = "{\"Talon-Aux\":{"; //OPEN JSON BLOB
 
 	String analogData = "\"AIN\":[";
 	String analogAvgData = "\"AIN_AVG\":[";
@@ -476,7 +478,7 @@ String AuxTalon::getData(time_t time)
 	output = output + analogData + analogAvgData + countData + rateData; //Concatonate all sub-strings
 	output = output + "\"START\":" + String((long) startTime) + ","; //Concatonate start time
 	output = output + "\"STOP\":" + String((long) stopTime) + ","; //Concatonate stop time
-	output = output + "\"Pos\":[" + String(port) + "]"; //Concatonate position 
+	output = output + "\"Pos\":[" + String(talonPort) + "]"; //Concatonate position 
 	output = output + "}}"; //CLOSE JSON BLOB
 	return output;
 
@@ -836,7 +838,7 @@ String AuxTalon::getMetadata()
 	String metadata = "{\"Talon-Aux\":{";
 	if(error == 0) metadata = metadata + "\"SN\":\"" + uuid + "\","; //Append UUID only if read correctly, skip otherwise 
 	metadata = metadata + "\"Mk\":\"v" + String(version >> 4, HEX) + "." + String(version & 0x0F, HEX) + "\","; //Report version as modded BCD
-	metadata = metadata + "\"Pos\":[" + String(port) + "]"; //Concatonate position 
+	metadata = metadata + "\"Pos\":[" + String(talonPort) + "]"; //Concatonate position 
 	metadata = metadata + "}}"; //CLOSE  
 	return metadata; 
 }
@@ -867,8 +869,8 @@ void AuxTalon::setTalonPort(uint8_t port_)
 	// if(port_ > numPorts || port_ == 0) throwError(PORT_RANGE_ERROR | portErrorCode); //If commanded value is out of range, throw error 
 	if(port_ > 4 || port_ == 0) throwError(PORT_RANGE_ERROR | portErrorCode); //If commanded value is out of range, throw error //FIX! How to deal with magic number? This is the number of ports on KESTREL, how do we know that??
 	else { //If in range, update the port values
-		port = port_ - 1; //Set global port value in index counting
-		portErrorCode = (port + 1) << 4; //Set port error code in rational counting 
+		talonPort = port_ - 1; //Set global port value in index counting
+		portErrorCode = (talonPort + 1) << 4; //Set port error code in rational counting 
 	}
 }
 
