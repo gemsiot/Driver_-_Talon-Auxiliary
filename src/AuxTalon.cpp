@@ -407,7 +407,7 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 		output = output + "\"I2C\":[";
 		for(int adr = 0; adr < 128; adr++) { //Check for addresses present 
 			Wire.beginTransmission(adr);
-			Wire.write(0x00);
+			// Wire.write(0x00);
 			if(Wire.endTransmission() == 0) {
 				output = output + String(adr) + ",";
 			}
