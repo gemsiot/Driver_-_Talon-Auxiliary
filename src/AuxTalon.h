@@ -115,7 +115,7 @@ namespace pinsBeta
  * @class AuxTalon
  * @brief Library for the Auxiliar Talon interfacing
  */
-class AuxTalon: public Sensor, public Talon
+class AuxTalon: public Talon
 {
   constexpr static  int DEAFULT_PORT = 4; ///<Use port 4 by default
   constexpr static  int DEFAULT_VERSION = 0x14; ///<Use hardware version v1.4 by default
@@ -176,10 +176,10 @@ class AuxTalon: public Sensor, public Talon
     // int reportErrors(uint32_t *errors, size_t length);
     String getErrors();
     String getMetadata();
-    uint8_t totalErrors();
-    bool ovfErrors();
+    // uint8_t totalErrors();
+    // bool ovfErrors();
     // uint8_t getPort();
-    void setTalonPort(uint8_t port_);
+    // void setTalonPort(uint8_t port_);
     // bool isTalon() {
     //   return true;
     // };
@@ -187,9 +187,9 @@ class AuxTalon: public Sensor, public Talon
     int enablePower(uint8_t port, bool state);
     int disableDataAll();
     int disablePowerAll();
-    uint8_t getTalonPort() {
-      return talonPort + 1;
-    }
+    // uint8_t getTalonPort() {
+    //   return talonPort + 1;
+    // }
     bool isPresent();
     uint8_t getNumPorts() {
       return numPorts;
@@ -212,7 +212,7 @@ class AuxTalon: public Sensor, public Talon
 
     
 
-    int throwError(uint32_t error);
+    // int throwError(uint32_t error);
 
     int16_t adcRead(uint8_t port, uint8_t gain); 
     int adcConfig(uint8_t configHigh, uint8_t configLow);
@@ -263,12 +263,12 @@ class AuxTalon: public Sensor, public Talon
     bool initDone = false; //Used to keep track if the initaliztion has run - used by hasReset() 
     
 
-    uint32_t errors[MAX_NUM_ERRORS] = {0};
-    uint8_t numErrors = 0; //Used to track the index of errors array
-    bool errorOverwrite = false; //Used to track if errors have been overwritten in time since last report
-    bool timeBaseGood = false; //Used to keep track of the valitity of the current timebase
-    uint8_t talonPort = 0; //Used to keep track of which port the Talon is connected to on Kestrel
-    uint32_t portErrorCode = 0; //Used to easily OR with error codes to add the Talon port
+    // uint32_t errors[MAX_NUM_ERRORS] = {0};
+    // uint8_t numErrors = 0; //Used to track the index of errors array
+    // bool errorOverwrite = false; //Used to track if errors have been overwritten in time since last report
+    // bool timeBaseGood = false; //Used to keep track of the valitity of the current timebase
+    // uint8_t talonPort = 0; //Used to keep track of which port the Talon is connected to on Kestrel
+    // uint32_t portErrorCode = 0; //Used to easily OR with error codes to add the Talon port
     uint8_t version = 0; //FIX! This should be read from EEPROM in future 
     //////// ADC CONFIG VALS //////////////
     const uint8_t adcBaseConfigHigh = 0x01; //Single shot, blanked port and gain

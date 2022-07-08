@@ -18,7 +18,9 @@ Distributed as-is; no warranty is given.
 
 AuxTalon::AuxTalon(uint8_t talonPort_, uint8_t hardwareVersion) : ioAlpha(0x20), ioBeta(0x23), ioGamma(0x24)
 {
-	talonPort = talonPort_ - 1; //Copy to local //FIX!
+	// talonPort = talonPort_ - 1; //Copy to local //FIX!
+	if(talonPort_ > 0) talonPort = talonPort_ - 1;
+	else talonPort = 255; //Reset to null default if not in range
 	version = hardwareVersion; //Copy to local
 	talonInterface = BusType::NONE; 
 }
@@ -144,15 +146,16 @@ String AuxTalon::getErrors()
 	// return -1; //Return fault if unknown cause 
 }
 
-int AuxTalon::throwError(uint32_t error)
-{
-	errors[(numErrors++) % MAX_NUM_ERRORS] = error; //Write error to the specified location in the error array
-	if(numErrors > MAX_NUM_ERRORS) errorOverwrite = true; //Set flag if looping over previous errors 
-	return numErrors;
-}
+// int AuxTalon::throwError(uint32_t error)
+// {
+// 	errors[(numErrors++) % MAX_NUM_ERRORS] = error; //Write error to the specified location in the error array
+// 	if(numErrors > MAX_NUM_ERRORS) errorOverwrite = true; //Set flag if looping over previous errors 
+// 	return numErrors;
+// }
 
 String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 {
+	if(getTalonPort() == 0) return "{\"Talon-Aux\":null}"; //Return null result if there is no port detected for Talon
 	String output = "{\"Talon-Aux\":{";
 	if(diagnosticLevel == 0) {
 		//TBD
@@ -455,31 +458,34 @@ String AuxTalon::getData(time_t time)
 {
 	const time_t startTime = clearTime; //Grab current clear time //FIX! change to report the time used in calculation
 	const time_t stopTime = time; //Grab the time the current update is made
-	updateCount(time); //Update counter values
-	updateAnalog(); //Update analog readings
-	
-	String output = "{\"Talon-Aux\":{"; //OPEN JSON BLOB
+	String output = "{\"Talon-Aux\":"; //OPEN JSON BLOB
+	if(isPresent()) { //If Talon has been detected, go through normal data appending 
+		updateCount(time); //Update counter values
+		updateAnalog(); //Update analog readings
+		output = output + "{"; //Open sub-blob
+		String analogData = "\"AIN\":[";
+		String analogAvgData = "\"AIN_AVG\":[";
+		String countData = "\"COUNTS\":[";
+		String rateData = "\"RATE\":[";
+		for(int i = 0; i < 3; i++) {
+			analogData = analogData + String(analogVals[i], 7) + ",";
+			analogAvgData = analogAvgData + String(analogValsAvg[i], 7) + ",";
+			countData = countData + String(counts[i]) + ",";
+			rateData = rateData + String(rates[i], 7) + ",";
+		}
+		analogData = analogData.substring(0,analogData.length() - 1) + "],"; //Trim trailing ',' and close array
+		analogAvgData = analogAvgData.substring(0,analogAvgData.length() - 1) + "],";
+		countData = countData.substring(0,countData.length() - 1) + "],";
+		rateData = rateData.substring(0,rateData.length() - 1) + "],";
 
-	String analogData = "\"AIN\":[";
-	String analogAvgData = "\"AIN_AVG\":[";
-	String countData = "\"COUNTS\":[";
-	String rateData = "\"RATE\":[";
-	for(int i = 0; i < 3; i++) {
-		analogData = analogData + String(analogVals[i], 7) + ",";
-		analogAvgData = analogAvgData + String(analogValsAvg[i], 7) + ",";
-		countData = countData + String(counts[i]) + ",";
-		rateData = rateData + String(rates[i], 7) + ",";
+		output = output + analogData + analogAvgData + countData + rateData; //Concatonate all sub-strings
+		output = output + "\"START\":" + String((long) startTime) + ","; //Concatonate start time
+		output = output + "\"STOP\":" + String((long) stopTime) + ","; //Concatonate stop time
+		output = output + "\"Pos\":[" + String(talonPort) + "]"; //Concatonate position 
+		output = output + "}}"; //CLOSE JSON BLOB
 	}
-	analogData = analogData.substring(0,analogData.length() - 1) + "],"; //Trim trailing ',' and close array
-	analogAvgData = analogAvgData.substring(0,analogAvgData.length() - 1) + "],";
-	countData = countData.substring(0,countData.length() - 1) + "],";
-	rateData = rateData.substring(0,rateData.length() - 1) + "],";
-
-	output = output + analogData + analogAvgData + countData + rateData; //Concatonate all sub-strings
-	output = output + "\"START\":" + String((long) startTime) + ","; //Concatonate start time
-	output = output + "\"STOP\":" + String((long) stopTime) + ","; //Concatonate stop time
-	output = output + "\"Pos\":[" + String(talonPort) + "]"; //Concatonate position 
-	output = output + "}}"; //CLOSE JSON BLOB
+	else output = output + "null}"; //Close with null
+	
 	return output;
 
 }
@@ -843,16 +849,16 @@ String AuxTalon::getMetadata()
 	return metadata; 
 }
 
-uint8_t AuxTalon::totalErrors()
-{
-	return numErrors;
-}
+// uint8_t AuxTalon::totalErrors()
+// {
+// 	return numErrors;
+// }
 
-bool AuxTalon::ovfErrors()
-{
-	if(numErrors > MAX_NUM_ERRORS) return true;
-	else return false;
-}
+// bool AuxTalon::ovfErrors()
+// {
+// 	if(numErrors > MAX_NUM_ERRORS) return true;
+// 	else return false;
+// }
 
 // uint8_t AuxTalon::getTalonPort()
 // {
@@ -864,15 +870,15 @@ bool AuxTalon::ovfErrors()
 // 	return port;
 // }
 
-void AuxTalon::setTalonPort(uint8_t port_)
-{
-	// if(port_ > numPorts || port_ == 0) throwError(PORT_RANGE_ERROR | portErrorCode); //If commanded value is out of range, throw error 
-	if(port_ > 4 || port_ == 0) throwError(PORT_RANGE_ERROR | portErrorCode); //If commanded value is out of range, throw error //FIX! How to deal with magic number? This is the number of ports on KESTREL, how do we know that??
-	else { //If in range, update the port values
-		talonPort = port_ - 1; //Set global port value in index counting
-		portErrorCode = (talonPort + 1) << 4; //Set port error code in rational counting 
-	}
-}
+// void AuxTalon::setTalonPort(uint8_t port_)
+// {
+// 	// if(port_ > numPorts || port_ == 0) throwError(PORT_RANGE_ERROR | portErrorCode); //If commanded value is out of range, throw error 
+// 	if(port_ > 4 || port_ == 0) throwError(PORT_RANGE_ERROR | portErrorCode); //If commanded value is out of range, throw error //FIX! How to deal with magic number? This is the number of ports on KESTREL, how do we know that??
+// 	else { //If in range, update the port values
+// 		talonPort = port_ - 1; //Set global port value in index counting
+// 		portErrorCode = (talonPort + 1) << 4; //Set port error code in rational counting 
+// 	}
+// }
 
 int AuxTalon::disableDataAll()
 {
