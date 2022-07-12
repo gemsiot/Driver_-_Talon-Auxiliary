@@ -120,7 +120,8 @@ class AuxTalon: public Talon
   constexpr static  int DEAFULT_PORT = 4; ///<Use port 4 by default
   constexpr static  int DEFAULT_VERSION = 0x14; ///<Use hardware version v1.4 by default
   constexpr static  int MAX_NUM_ERRORS = 10; ///<Maximum number of errors to log before overwriting previous errors in buffer
-
+  const String FIRMWARE_VERSION = "0.0.0"; //FIX! Read from system??
+  
   ////////////// ERROR CODES ///////////////
   const uint32_t ADC_I2C_ERROR = 0xFF00; //FIX!!! (Low 3 bits are returned error)
   const uint32_t ADC_TIMEOUT_ERROR = 0xFF10; //FIX!!!
