@@ -81,6 +81,33 @@ String AuxTalon::begin(time_t time, bool &criticalFault, bool &fault)
 	return diagnosticResults; //Return diagnostic string
 }
 
+// int AuxTalon::restart()
+// {
+// 	int startingErrors = numErrors; //Grab the number of errors which have been logged when we start the begin call, used to keep track of new errors
+// 	//Initalize io expanders 
+// 	int ioError[3] = {0};
+// 	ioError[0] = ioAlpha.begin();
+// 	ioError[1] = ioBeta.begin();
+// 	ioError[2] = ioGamma.begin();	
+
+// 	for(int i = 0; i < 3; i++) {
+// 		if(ioError[i] != 0) { 
+// 			throwError(IO_INIT_ERROR | ioError[i]); //Throw error on first init error, not again 
+// 			// criticalFault = true; //If any IO expander fails, this is a critical error  
+// 			break;
+// 		}
+// 	}
+
+// 	Wire.beginTransmission(ADR_ADS1115);
+// 	Wire.write(0x00);
+// 	if(Wire.endTransmission() != 0) {
+// 		throwError(ADC_INIT_ERROR); //Throw ADC initialization error
+// 		// fault = true; //Set non-critical fault flag
+// 	}
+// 	// ads.begin();
+
+// 	setPinDefaults();
+// }
 
 // int AuxTalon::reportErrors(uint32_t *errorOutput, size_t length)
 // {
@@ -436,7 +463,7 @@ int AuxTalon::restart()
 {
 	bool hasCriticalError = false;
 	bool hasError = false;
-	if(initDone == false) begin(0, hasCriticalError, hasError); //If for some reason the begin() function has not been run, call this now //FIX!
+	if(hasReset()) begin(0, hasCriticalError, hasError); //If for some reason the begin() function has not been run, call this now //FIX!
 	setPinDefaults(); //Reset IO expander pins to their default state
 	for(int i = 0; i < 3; i++) {
 		if (faults[i] == true) { 
