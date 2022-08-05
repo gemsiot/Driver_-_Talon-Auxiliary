@@ -150,6 +150,7 @@ String AuxTalon::getErrors()
 	// 	}
 	// 	return 0; //Return success indication
 	// }
+	
 	String output = "{\"Talon-Aux\":{"; // OPEN JSON BLOB
 	output = output + "\"CODES\":["; //Open codes pair
 
@@ -165,7 +166,7 @@ String AuxTalon::getErrors()
 	if(numErrors > MAX_NUM_ERRORS) output = output + "1,"; //If overwritten, indicate the overwrite is true
 	else output = output + "0,"; //Otherwise set it as clear
 	output = output + "\"NUM\":" + String(numErrors) + ","; //Append number of errors
-	output = output + "\"Pos\":[" + String(talonPort + 1) + "]"; //Concatonate position 
+	output = output + "\"Pos\":[" + getTalonPortString() + "]"; //Concatonate position 
 	output = output + "}}"; //CLOSE JSON BLOB
 	numErrors = 0; //Clear error count
 	return output;
@@ -182,17 +183,18 @@ String AuxTalon::getErrors()
 
 String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 {
+	if(getTalonPort() == 0) throwError(TALON_MISSING); //If Talon not found, report failure
 	if(getTalonPort() == 0) return "{\"Talon-Aux\":null}"; //Return null result if there is no port detected for Talon
 	String output = "{\"Talon-Aux\":{";
 	if(diagnosticLevel == 0) {
 		//TBD
-		output = output + "\"lvl-0\":{},\"Pos\":[" + String(talonPort) + "]}},";
+		output = output + "\"lvl-0\":{},\"Pos\":[" + getTalonPortString() + "]}},";
 		// return output + "\"lvl-0\":{},\"Pos\":[" + String(port) + "]}}";
 	}
 
 	if(diagnosticLevel <= 1) {
 		//TBD
-		output = output + "\"lvl-1\":{},\"Pos\":[" + String(talonPort) + "]}},";
+		output = output + "\"lvl-1\":{},\"Pos\":[" + getTalonPortString() + "]}},";
 	}
 
 	if(diagnosticLevel <= 2) {
@@ -452,7 +454,7 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 		// return output + ",\"Pos\":[" + String(port) + "]}}";
 		// return output;
 	}
-	return output + ",\"Pos\":[" + String(talonPort + 1) + "]}}"; //Write position in logical form - Return compleated closed output
+	return output + ",\"Pos\":[" + getTalonPortString() + "]}}"; //Write position in logical form - Return compleated closed output
 	// else return ""; //Return empty string if reaches this point 
 
 	// return "{}"; //Return null if reach end	
@@ -508,7 +510,7 @@ String AuxTalon::getData(time_t time)
 		output = output + analogData + analogAvgData + countData + rateData; //Concatonate all sub-strings
 		output = output + "\"START\":" + String((long) startTime) + ","; //Concatonate start time
 		output = output + "\"STOP\":" + String((long) stopTime) + ","; //Concatonate stop time
-		output = output + "\"Pos\":[" + String(talonPort) + "]"; //Concatonate position 
+		output = output + "\"Pos\":[" + getTalonPortString() + "]"; //Concatonate position 
 		output = output + "}}"; //CLOSE JSON BLOB
 	}
 	else output = output + "null}"; //Close with null
@@ -872,7 +874,7 @@ String AuxTalon::getMetadata()
 	if(error == 0) metadata = metadata + "\"SN\":\"" + uuid + "\","; //Append UUID only if read correctly, skip otherwise 
 	metadata = metadata + "\"Hardware\":\"v" + String(version >> 4, HEX) + "." + String(version & 0x0F, HEX) + "\","; //Report hardware version as modded BCD
 	metadata = metadata + "\"Firmware\":\"v" + FIRMWARE_VERSION + "\","; //Report firmware version as modded BCD
-	metadata = metadata + "\"Pos\":[" + String(talonPort) + "]"; //Concatonate position 
+	metadata = metadata + "\"Pos\":[" + getTalonPortString() + "]"; //Concatonate position 
 	metadata = metadata + "}}"; //CLOSE  
 	return metadata; 
 }
