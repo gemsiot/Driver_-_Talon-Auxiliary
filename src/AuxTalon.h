@@ -123,24 +123,24 @@ class AuxTalon: public Talon
   const String FIRMWARE_VERSION = "1.0.0"; //FIX! Read from system??
   
   ////////////// ERROR CODES ///////////////
-  const uint32_t ADC_I2C_ERROR = 0xFF00; //FIX!!! (Low 3 bits are returned error)
-  const uint32_t ADC_TIMEOUT_ERROR = 0xFF10; //FIX!!!
-  const uint32_t COUNTER_OVERFLOW = 0xFF20; //FIX!!! (low 2 bits are which port)
-  const uint32_t TIME_DELTA_EXCEEDED = 0xFF30; //FIX!!! 
-  const uint32_t TIME_BAD = 0xFF40; //FIX!
-  const uint32_t DEVICE_RESET = 0xFF50; //FIX!
-  const uint32_t POWER_FAULT = 0xFF60; //FIX! (low 2 bits are which port)
-  const uint32_t POWER_FAULT_PERSISTENT = 0xFF70; //FIX! (low 2 bits are which port)
-  const uint32_t BUS_DISAGREE = 0xFF80; //FIX! (low 2 bits are which port)
-  const uint32_t BUS_OUTOFRANGE = 0xFF90; //FIX! (low 2 bits are which port, 3 = 5V rail)
-  const uint32_t IO_INIT_ERROR = 0xFFA0; //FIX! (Low 3 bits are returned error)
-  const uint32_t ADC_INIT_ERROR = 0xFFB0; //FIX! (Low 3 bits are returned error)
-  const uint32_t INPUT_BUF_ERROR = 0xFFC0; //FIX! (Low 2 bits are which port, 3rd bit is Dx vs ODx input)
-  const uint32_t COUNTER_INCREMENT_ERROR = 0xFFD0; //FIX! (Low 2 bits are which port)
-  const uint32_t COUNTER_CLEAR_ERROR = 0xFFE0; //FIX!
-  const uint32_t EEPROM_I2C_ERROR = 0xFFF0; //FIX! (Low 3 bits are returned error)
-  const uint32_t PORT_RANGE_ERROR = 0xF000; //FIX! 
-  const float MAX_DISAGREE = 0.1; //If bus is different from expected by more than 10%, throw error
+  constexpr static uint32_t ADC_I2C_ERROR = 0xFF00; //FIX!!! (Low 3 bits are returned error)
+  constexpr static uint32_t ADC_TIMEOUT_ERROR = 0xFF10; //FIX!!!
+  constexpr static uint32_t COUNTER_OVERFLOW = 0xFF20; //FIX!!! (low 2 bits are which port)
+  constexpr static uint32_t TIME_DELTA_EXCEEDED = 0xFF30; //FIX!!!
+  constexpr static uint32_t TIME_BAD = 0xFF40; //FIX!
+  constexpr static uint32_t DEVICE_RESET = 0xFF50; //FIX!
+  constexpr static uint32_t POWER_FAULT = 0xFF60; //FIX! (low 2 bits are which port)
+  constexpr static uint32_t POWER_FAULT_PERSISTENT = 0xFF70; //FIX! (low 2 bits are which port)
+  constexpr static uint32_t BUS_DISAGREE = 0xFF80; //FIX! (low 2 bits are which port)
+  constexpr static uint32_t BUS_OUTOFRANGE = 0xFF90; //FIX! (low 2 bits are which port, 3 = 5V rail)
+  constexpr static uint32_t IO_INIT_ERROR = 0xFFA0; //FIX! (Low 3 bits are returned error)
+  constexpr static uint32_t ADC_INIT_ERROR = 0xFFB0; //FIX! (Low 3 bits are returned error)
+  constexpr static uint32_t INPUT_BUF_ERROR = 0xFFC0; //FIX! (Low 2 bits are which port, 3rd bit is Dx vs ODx input)
+  constexpr static uint32_t COUNTER_INCREMENT_ERROR = 0xFFD0; //FIX! (Low 2 bits are which port)
+  constexpr static uint32_t COUNTER_CLEAR_ERROR = 0xFFE0; //FIX!
+  constexpr static uint32_t EEPROM_I2C_ERROR = 0xFFF0; //FIX! (Low 3 bits are returned error)
+  constexpr static uint32_t PORT_RANGE_ERROR = 0xF000; //FIX!
+  constexpr static float MAX_DISAGREE = 0.1; //If bus is different from expected by more than 10%, throw error
 
   
 
