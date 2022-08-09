@@ -145,6 +145,7 @@ class AuxTalon: public Talon
   
 
   public:
+	constexpr static const char* CLASS_NAME = "Auxiliary";
 
     /**
      * @brief Instantiate the Talon, defaults to using pre-specified port and hardware version
@@ -191,7 +192,7 @@ class AuxTalon: public Talon
     // uint8_t getTalonPort() {
     //   return talonPort + 1;
     // }
-    bool isPresent();
+    static bool isPresent();
     uint8_t getNumPorts() {
       return numPorts;
     }
