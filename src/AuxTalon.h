@@ -206,7 +206,7 @@ class AuxTalon: public Talon
     const int ADR_ADS1115 = 0x49;
     const unsigned long adcReadTimeout = 10; //Wait at most 10ms for an updated reading
     const time_t maxTimeDelta = 0; //FIX!!! 
-    uint8_t numPorts = 3; 
+    const uint8_t numPorts = 3; 
     PCAL9535A ioAlpha; //ADR = 0x20
     PCAL9535A ioBeta; //ADR = 0x23
     PCAL9535A ioGamma; //ADR = 0x24

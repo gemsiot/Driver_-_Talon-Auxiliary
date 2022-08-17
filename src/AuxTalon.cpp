@@ -151,7 +151,7 @@ String AuxTalon::getErrors()
 	// 	return 0; //Return success indication
 	// }
 	
-	String output = "{\"Talon-Aux\":{"; // OPEN JSON BLOB
+	String output = "\"Talon-Aux\":{"; // OPEN JSON BLOB
 	output = output + "\"CODES\":["; //Open codes pair
 
 	for(int i = 0; i < min(MAX_NUM_ERRORS, numErrors); i++) { //Interate over used element of array without exceeding bounds
@@ -167,7 +167,7 @@ String AuxTalon::getErrors()
 	else output = output + "0,"; //Otherwise set it as clear
 	output = output + "\"NUM\":" + String(numErrors) + ","; //Append number of errors
 	output = output + "\"Pos\":[" + getTalonPortString() + "]"; //Concatonate position 
-	output = output + "}}"; //CLOSE JSON BLOB
+	output = output + "}"; //CLOSE JSON BLOB
 	numErrors = 0; //Clear error count
 	return output;
 
@@ -183,23 +183,30 @@ String AuxTalon::getErrors()
 
 String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 {
-	if(getTalonPort() == 0) throwError(TALON_MISSING); //If Talon not found, report failure
-	if(getTalonPort() == 0) return "{\"Talon-Aux\":null}"; //Return null result if there is no port detected for Talon
-	String output = "{\"Talon-Aux\":{";
+	bool talonPresent = true;
+	if(getTalonPort() == 0) {
+		talonPresent = false; //Clear flag //DEBUG!
+		throwError(TALON_MISSING); //If Talon not found, report failure
+	}
+	// if(getTalonPort() == 0) return "{\"Talon-Aux\":null}"; //Return null result if there is no port detected for Talon
+	String output = "\"Talon-Aux\":{";
+	String sysOutput = ""; //Generate a string for the system level info 
+	String portOutput[numPorts] = {""}; //Generate a seperate string for each port
+	for(int i = 0; i < numPorts; i++) portOutput[i] = "\"PORT_" + String(i + 1) + "\":{"; //Generate header for each port subgroup
 	if(diagnosticLevel == 0) {
 		//TBD
-		output = output + "\"lvl-0\":{},\"Pos\":[" + getTalonPortString() + "]}},";
+		// output = output + "\"lvl-0\":{},\"Pos\":[" + getTalonPortString() + "]}},";
 		// return output + "\"lvl-0\":{},\"Pos\":[" + String(port) + "]}}";
 	}
 
 	if(diagnosticLevel <= 1) {
 		//TBD
-		output = output + "\"lvl-1\":{},\"Pos\":[" + getTalonPortString() + "]}},";
+		// output = output + "\"lvl-1\":{},\"Pos\":[" + getTalonPortString() + "]}},";
 	}
 
 	if(diagnosticLevel <= 2) {
 		//TBD
-		output = output + "\"lvl-2\":{\"Dummy\":\"THisisadummystringforthepusrposesoftestingthewraparoundfunctionalityoftheparserfordealingwithveryveryverylongstringsofstuffTHisisadummystringforthepusrposesoftestingthewraparoundfunctionalityoftheparserfordealingwithveryveryverylongstringsofstuff\"},";
+		// output = output + "\"lvl-2\":{\"Dummy\":\"THisisadummystringforthepusrposesoftestingthewraparoundfunctionalityoftheparserfordealingwithveryveryverylongstringsofstuffTHisisadummystringforthepusrposesoftestingthewraparoundfunctionalityoftheparserfordealingwithveryveryverylongstringsofstuff\"},";
 		// String level3 = selfDiagnostic(3, time); //Call the lower level of self diagnostic 
 		// level3 = level3.substring(1,level3.length() - 1); //Trim off opening and closing brace
 		// output = output + level3; //Concatonate level 4 on top of level 3
@@ -213,7 +220,7 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 	if(diagnosticLevel <= 3) {
 		//TBD
 		// Serial.println(millis()); //DEBUG!
-		output = output + "\"lvl-3\":{"; //OPEN JSON BLOB
+		// output = output + "\"lvl-3\":{"; //OPEN JSON BLOB
 		///////// TEST INPUT DRIVES //////////////
 		const int numPulses = 5; //Number of pulses to use for testing
 		for(int i = 0; i < 3; i++) {
@@ -280,7 +287,7 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 
 		bool pullupVal = 0;
 		bool pulldownVal = 0;
-		for(int port = 0; port < 3; port++) {
+		for(int port = 0; port < numPorts; port++) {
 			ioBeta.pinMode(pinsBeta::D1_SENSE + port, INPUT_PULLUP); //Set given digital input pin as pullup
 			delay(1); //Wait for line to charge if floating
 			pullupVal = ioBeta.digitalRead(pinsBeta::D1_SENSE + port); //Read state when pullup is applied
@@ -297,15 +304,15 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 			else digitalInputCurrentState[port] = -1; //Set to N/A if the port is unoccupied  
 		}
 
-		String occupied = "\"Dx_USE\":[";
-		String currentState = "\"Dx_STATE\":[";
-		for(int i = 0; i < 3; i++) {
-			occupied = occupied + String(digitalInputOccupied[i]) + ",";
-			currentState = currentState + String(digitalInputCurrentState[i]) + ",";
-		}
-		occupied = occupied.substring(0, occupied.length() - 1) + "],"; //Trim off trailing ',' and close
-		currentState = currentState.substring(0, currentState.length() - 1) + "],"; //Trim off trailing ',' and close
-		output = output + occupied + currentState; //Concatonate together
+		// String occupied = "\"Dx_USE\":[";
+		// String currentState = "\"Dx_STATE\":[";
+		// for(int i = 0; i < 3; i++) {
+		// 	occupied = occupied + String(digitalInputOccupied[i]) + ",";
+		// 	currentState = currentState + String(digitalInputCurrentState[i]) + ",";
+		// }
+		// occupied = occupied.substring(0, occupied.length() - 1) + "],"; //Trim off trailing ',' and close
+		// currentState = currentState.substring(0, currentState.length() - 1) + "],"; //Trim off trailing ',' and close
+		// output = output + occupied + currentState; //Concatonate together
 
 
 		for(int i = 0; i < 3; i++) { //Return pins to defaults
@@ -331,22 +338,27 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 			ioAlpha.digitalWrite(pinsAlpha::ACTRL1 + port, LOW); //Turn MOSFET off to release line
 			senseDischarged[port] = float(adcRead(port, 0))*(adcGainConv[0]); //Read in discharged value
 		}
-		output = output + "\"AIN_SENSE\":{"; //Open array
-
-		String open = "\"OPEN\":[";
-		String discharged = "\"DIS\":[";
-		String loaded = "\"LOAD\":[";
-
-		for(int i = 0; i < 3; i++) {
-			open = open + String(senseOpen[i], 4) + ",";
-			discharged = discharged + String(senseDischarged[i], 4) + ",";
-			loaded = loaded + String(senseLoaded[i], 4) + ",";
+		for(int i = 0; i < numPorts; i++) {
+			if(talonPresent) portOutput[i] = portOutput[i] + "\"In_Occ\":" + String(digitalInputOccupied[i]) + ",\"In_State\":" + String(digitalInputCurrentState[i]) + ",\"Ain_O\":" + String(senseOpen[i]) + ",\"Ain_D\":" + String(senseDischarged[i]) + ",\"Ain_L\":" + String(senseLoaded[i]) + ",";
+			else portOutput[i] = portOutput[i] + "\"In_Occ\":null,\"In_State\":null,\"Ain_O\":null,\"Ain_D\":null,\"Ain_L\":null,";
 		}
-		open = open.substring(0, open.length() - 1) + "],"; //Trim off trailing ',' and close
-		discharged = discharged.substring(0, discharged.length() - 1) + "],"; //Trim off trailing ',' and close
-		loaded = loaded.substring(0, loaded.length() - 1) + "]"; //Trim off trailing ',' and close
+		
+		// output = output + "\"AIN_SENSE\":{"; //Open array
 
-		output = output + open + discharged + loaded + "}},"; //Close AIN_SENSE
+		// String open = "\"OPEN\":[";
+		// String discharged = "\"DIS\":[";
+		// String loaded = "\"LOAD\":[";
+
+		// for(int i = 0; i < 3; i++) {
+		// 	open = open + String(senseOpen[i], 4) + ",";
+		// 	discharged = discharged + String(senseDischarged[i], 4) + ",";
+		// 	loaded = loaded + String(senseLoaded[i], 4) + ",";
+		// }
+		// open = open.substring(0, open.length() - 1) + "],"; //Trim off trailing ',' and close
+		// discharged = discharged.substring(0, discharged.length() - 1) + "],"; //Trim off trailing ',' and close
+		// loaded = loaded.substring(0, loaded.length() - 1) + "]"; //Trim off trailing ',' and close
+
+		// output = output + open + discharged + loaded + "}},"; //Close AIN_SENSE
 		// String level4 = selfDiagnostic(4); //Call the lower level of self diagnostic 
 		// level4 = level4.substring(1,level4.length() - 1); //Trim off opening and closing brace
 		// output = output + level4; //Concatonate level 4 on top of level 3
@@ -359,7 +371,7 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 	if(diagnosticLevel <= 4) {
 		// String output = selfDiagnostic(5); //Call the lower level of self diagnostic 
 		// output = output.substring(0,output.length() - 1); //Trim off closing brace
-		output = output + "\"lvl-4\":{"; //OPEN JSON BLOB
+		// output = output + "\"lvl-4\":{"; //OPEN JSON BLOB
 
 		ioAlpha.digitalWrite(pinsAlpha::EN1, HIGH); //Make sure all ports are enabled before testing 
 		ioAlpha.digitalWrite(pinsAlpha::EN2, HIGH); 
@@ -369,8 +381,8 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 		adcConfig(0x71, 0x80); //Configure the ADC to read from channel 3 (MUX in) and use full scale range (6.144V) and 128 sps for high speed 
 		float portInputVoltage[3] = {0};
 		float portOutputVoltage[3] = {0};
-		String portInputString = "\"RAIL_IN\":["; //Sub string for input vals
-		String portOutputString = "\"RAIL_OUT\":["; //Sub string for output vals
+		// String portInputString = "\"RAIL_IN\":["; //Sub string for input vals
+		// String portOutputString = "\"RAIL_OUT\":["; //Sub string for output vals
 
  		for (int i = 0; i < 3; i++) {
  			ioAlpha.digitalWrite(pinsAlpha::MUX_SEL0, (i & 0x01)); //Write low bit of counter to MUX_SEL0
@@ -378,16 +390,16 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 			ioAlpha.digitalWrite(pinsAlpha::MUX_SEL2, LOW); //Read external ports first
 			delay(1); //DEBUG!
 			portOutputVoltage[i] = float(adcRead(3, 0))*(adcGainConv[0]); //Read from port 3 with no gain, convert to mV
-			portOutputString = portOutputString + String(portOutputVoltage[i], 4) + ","; //Use max decimal places for min ADC resolution x.1875 
+			// portOutputString = portOutputString + String(portOutputVoltage[i], 4) + ","; //Use max decimal places for min ADC resolution x.1875 
 			ioAlpha.digitalWrite(pinsAlpha::MUX_SEL2, HIGH); //Read internal ports next
 			delay(1); //DEBUG!
 			portInputVoltage[i] = float(adcRead(3, 0))*(adcGainConv[0]); //Read from port 3 with no gain, convert to mV
-			portInputString = portInputString + String(portInputVoltage[i], 4) + ","; //Use max decimal places for min ADC resolution x.1875 
+			// portInputString = portInputString + String(portInputVoltage[i], 4) + ","; //Use max decimal places for min ADC resolution x.1875 
 			if((portInputVoltage[i] - portOutputVoltage[i])/portInputVoltage[i] > MAX_DISAGREE) throwError(BUS_DISAGREE | i); //Throw port disagree error and note position of port
 		}
 		
-		portInputString = portInputString.substring(0, portInputString.length() - 1) + "],"; //Trim trailing ',' and cap substring
-		portOutputString = portOutputString.substring(0, portOutputString.length() - 1) + "]"; //Trim trailing ',' and cap substring
+		// portInputString = portInputString.substring(0, portInputString.length() - 1) + "],"; //Trim trailing ',' and cap substring
+		// portOutputString = portOutputString.substring(0, portOutputString.length() - 1) + "]"; //Trim trailing ',' and cap substring
 
 		const float max3v3 = 3300*(1 + MAX_DISAGREE/2.0); //Calc ranges for bus values (working in mV!)
 		const float min3v3 = 3300*(1 - MAX_DISAGREE/2.0);
@@ -408,18 +420,24 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 		float busVoltage_5V = float(adcRead(3, 0))*(adcGainConv[0]); //Read 5V port with no gain, convert to mV
 		if((busVoltage_5V - 5000)/5000 > MAX_DISAGREE) throwError(BUS_OUTOFRANGE | 3); //Throw out of range error and note position of port
 
-		output = output + portInputString + portOutputString + ",\"5V0_RAIL\":" + String(busVoltage_5V, 4) +  "},"; //Concatonate strings and cap
+		// output = output + portInputString + portOutputString + ",\"5V0_RAIL\":" + String(busVoltage_5V, 4) +  "},"; //Concatonate strings and cap
 		// String level5 = selfDiagnostic(5); //Call the lower level of self diagnostic 
 		// level5 = level5.substring(1,level5.length() - 1); //Trim off opening and closing brace
 		// output = output + level5; //Concatonate level 5 on top of level 4
 		// output = output + "},"; //CLOSE JSON BLOB
 		// return output + ",\"Pos\":[" + String(port) + "]}}";
 		// return output;
+		for(int i = 0; i < numPorts; i++) {
+			if(talonPresent) portOutput[i] = portOutput[i] + "\"Vi\":" + String(portInputVoltage[i]) + ",\"Vo\":" + String(portOutputVoltage[i]) + ",\"PVset\":" + String(portVoltageSettings[i]) + ",";
+			else portOutput[i] = portOutput[i] + "\"Vi\":null,\"Vo\":null,\"PVset\":null,";
+		}
+		if(talonPresent) sysOutput = sysOutput + "\"5V_BUS\":" + String(busVoltage_5V) + ","; 
+		else sysOutput = sysOutput + "\"5V_BUS\":null,"; 
 
 	}
 
 	if(diagnosticLevel <= 5) {
-		output = output + "\"lvl-5\":{"; //OPEN JSON BLOB
+		// output = output + "\"lvl-5\":{"; //OPEN JSON BLOB
 		for(int i = 0; i < 3; i++) {
 			overflow[i] = ioBeta.getInterrupt(pinsBeta::OVF1 + i); //Read in overflow values
 			faults[i] = ioAlpha.getInterrupt(pinsAlpha::FAULT1 + i); //Read in fault values
@@ -431,30 +449,46 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 			}
 		}
 
-		output = output + "\"ALPHA\":" + String(ioAlpha.readBus()) + ","; //Append ALPHA port readout
-		output = output + "\"BETA\":" + String(ioBeta.readBus()) + ","; //Append BETA port readout
-		output = output + "\"ALPHA_INT\":" + String(ioAlpha.getAllInterrupts(PCAL9535A::IntAge::BOTH)) + ","; //Append ALPHA interrupt readout
-		output = output + "\"BETA_INT\":" + String(ioBeta.getAllInterrupts(PCAL9535A::IntAge::BOTH)) + ","; //Append BETA interrupt readout
-		output = output + "\"PORT_CFG\":[" + String(portVoltageSettings[0]) + "," + String(portVoltageSettings[1]) + "," + String(portVoltageSettings[2]) + "],"; 
-		output = output + "\"I2C\":[";
-		for(int adr = 0; adr < 128; adr++) { //Check for addresses present 
-			Wire.beginTransmission(adr);
-			// Wire.write(0x00);
-			if(Wire.endTransmission() == 0) {
-				output = output + String(adr) + ",";
+		// output = output + "\"ALPHA\":" + String(ioAlpha.readBus()) + ","; //Append ALPHA port readout
+		// output = output + "\"BETA\":" + String(ioBeta.readBus()) + ","; //Append BETA port readout
+		// output = output + "\"ALPHA_INT\":" + String(ioAlpha.getAllInterrupts(PCAL9535A::IntAge::BOTH)) + ","; //Append ALPHA interrupt readout
+		// output = output + "\"BETA_INT\":" + String(ioBeta.getAllInterrupts(PCAL9535A::IntAge::BOTH)) + ","; //Append BETA interrupt readout
+		// output = output + "\"PORT_CFG\":[" + String(portVoltageSettings[0]) + "," + String(portVoltageSettings[1]) + "," + String(portVoltageSettings[2]) + "],"; 
+		if(talonPresent) sysOutput = sysOutput + "\"ALPHA\":" + String(ioAlpha.readBus()) + ",\"BETA\":" + String(ioBeta.readBus()) + ",";
+		else sysOutput = sysOutput + "\"ALPHA\":null,\"BETA\":null,";
+		if(talonPresent) {
+			sysOutput = sysOutput + "\"I2C\":[";
+			for(int adr = 0; adr < 128; adr++) { //Check for addresses present 
+				Wire.beginTransmission(adr);
+				// Wire.write(0x00);
+				if(Wire.endTransmission() == 0) {
+					sysOutput = sysOutput + String(adr) + ",";
+				}
 			}
+			if(sysOutput.substring(sysOutput.length() - 1).equals(",")) {
+				sysOutput = sysOutput.substring(0, sysOutput.length() - 1); //Trim trailing ',' is present
+			}
+			sysOutput = sysOutput + "],"; // close array
 		}
-		if(output.substring(output.length() - 1).equals(",")) {
-			output = output.substring(0, output.length() - 1); //Trim trailing ',' is present
-		}
-		output = output + "]}"; // close array, close pair
+		else sysOutput = sysOutput + "\"I2C\":[null],";
 		// output = output + "}"; //CLOSE JSON BLOB, 
 		ioAlpha.clearInterrupt(PCAL9535A::IntAge::BOTH); //Clear all interrupts on Alpha
 		ioBeta.clearInterrupt(PCAL9535A::IntAge::BOTH); //Clear all interrupts on Beta
 		// return output + ",\"Pos\":[" + String(port) + "]}}";
 		// return output;
+		for(int i = 0; i < numPorts; i++) {
+			if(talonPresent) portOutput[i] = portOutput[i] + "\"OVF\":" + String(overflow[i]) + ",\"Fault\":" + String(faults[i]);
+			else portOutput[i] = portOutput[i] + "\"OVF\":null,\"Fault\":null";
+		}
 	}
-	return output + ",\"Pos\":[" + getTalonPortString() + "]}}"; //Write position in logical form - Return compleated closed output
+	sysOutput = sysOutput + "\"Pos\":[" + getTalonPortString() + "]";
+	for(int i = 0; i < numPorts; i++) {
+		output = output + portOutput[i] + "},";
+		// if(i < numPorts - 1) output = output + ","; //Only add comma if not last 
+	}
+	output = output + sysOutput + "}"; 
+	return output;
+	// return output + ",\"Pos\":[" + getTalonPortString() + "]}}"; //Write position in logical form - Return compleated closed output
 	// else return ""; //Return empty string if reaches this point 
 
 	// return "{}"; //Return null if reach end	
@@ -487,7 +521,7 @@ String AuxTalon::getData(time_t time)
 {
 	const time_t startTime = clearTime; //Grab current clear time //FIX! change to report the time used in calculation
 	const time_t stopTime = time; //Grab the time the current update is made
-	String output = "{\"Talon-Aux\":"; //OPEN JSON BLOB
+	String output = "\"Talon-Aux\":"; //OPEN JSON BLOB
 	if(isPresent()) { //If Talon has been detected, go through normal data appending 
 		updateCount(time); //Update counter values
 		updateAnalog(); //Update analog readings
@@ -511,9 +545,9 @@ String AuxTalon::getData(time_t time)
 		output = output + "\"START\":" + String((long) startTime) + ","; //Concatonate start time
 		output = output + "\"STOP\":" + String((long) stopTime) + ","; //Concatonate stop time
 		output = output + "\"Pos\":[" + getTalonPortString() + "]"; //Concatonate position 
-		output = output + "}}"; //CLOSE JSON BLOB
+		output = output + "}"; //CLOSE JSON BLOB
 	}
-	else output = output + "null}"; //Close with null
+	else output = output + "null"; //Close with null
 	
 	return output;
 
@@ -870,12 +904,12 @@ String AuxTalon::getMetadata()
 		}
 	}
 
-	String metadata = "{\"Talon-Aux\":{";
+	String metadata = "\"Talon-Aux\":{";
 	if(error == 0) metadata = metadata + "\"SN\":\"" + uuid + "\","; //Append UUID only if read correctly, skip otherwise 
 	metadata = metadata + "\"Hardware\":\"v" + String(version >> 4, HEX) + "." + String(version & 0x0F, HEX) + "\","; //Report hardware version as modded BCD
 	metadata = metadata + "\"Firmware\":\"v" + FIRMWARE_VERSION + "\","; //Report firmware version as modded BCD
 	metadata = metadata + "\"Pos\":[" + getTalonPortString() + "]"; //Concatonate position 
-	metadata = metadata + "}}"; //CLOSE  
+	metadata = metadata + "}"; //CLOSE  
 	return metadata; 
 }
 
