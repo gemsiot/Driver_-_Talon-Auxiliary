@@ -135,9 +135,9 @@ class AuxTalon: public Talon
   const uint32_t BUS_OUTOFRANGE = 0xFF90; //FIX! (low 2 bits are which port, 3 = 5V rail)
   const uint32_t IO_INIT_ERROR = 0xFFA0; //FIX! (Low 3 bits are returned error)
   const uint32_t ADC_INIT_ERROR = 0xFFB0; //FIX! (Low 3 bits are returned error)
-  const uint32_t INPUT_BUF_ERROR = 0xFFC0; //FIX! (Low 2 bits are which port, 3rd bit is Dx vs ODx input)
-  const uint32_t COUNTER_INCREMENT_ERROR = 0xFFD0; //FIX! (Low 2 bits are which port)
-  const uint32_t COUNTER_CLEAR_ERROR = 0xFFE0; //FIX!
+  const uint32_t INPUT_BUFF_FAIL = 0x30010000; //FIX! (Low 2 bytes are which port, 3rd byte failure type)
+  const uint32_t COUNTER_INCREMENT_FAIL = 0x80060000; //FIX! (Low 2 bits are which port)
+  const uint32_t COUNTER_CLEAR_FAIL = 0x80050000; //Counter fails to clear when ordered - low 2 bytes are Talon and port
   const uint32_t EEPROM_I2C_ERROR = 0xFFF0; //FIX! (Low 3 bits are returned error)
   const uint32_t PORT_RANGE_ERROR = 0xF000; //FIX! 
   const float MAX_DISAGREE = 0.1; //If bus is different from expected by more than 10%, throw error
@@ -278,6 +278,7 @@ class AuxTalon: public Talon
     const float adcGainConv[6] = {0.1875, 0.125, 0.0625, 0.03125, 0.015625, 0.0078125}; //Multiply output by conversion value to get mV
     const uint8_t adcPortConfigs[4] = {0x40, 0x50, 0x60, 0x70}; //Port0, Port1, Port2, Port3
     const uint8_t adcStartConversion = 0x80; 
+    uint32_t portErrorCode = 0; //Used to easily OR with error codes to add the Talon port
 };
 
 #endif

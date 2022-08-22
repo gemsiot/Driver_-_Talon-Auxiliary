@@ -202,6 +202,50 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 	if(diagnosticLevel <= 1) {
 		//TBD
 		// output = output + "\"lvl-1\":{},\"Pos\":[" + getTalonPortString() + "]}},";
+		const int numPulses = 65536; //Number of pulses to use for testing
+		for(int i = 0; i < 3; i++) {
+			ioBeta.digitalWrite(pinsBeta::OD1 + i, LOW); //Preempt the output as low
+			ioBeta.pinMode(pinsBeta::OD1 + i, OUTPUT); //Set line to output	
+			ioBeta.digitalWrite(pinsBeta::D1_SENSE + i, LOW); //Preempt low
+			ioBeta.pinMode(pinsBeta::D1_SENSE + i, OUTPUT); //Set to output to drive push-pull
+			ioBeta.pinMode(pinsBeta::OUT1 + i, INPUT); //Set as input so we can measure the output of the input buffer
+		}
+		clearCount(time); //Clear counters to start with 0 value
+		// bool inputErrorA = false; //Used to keep track if there is an error in the input driver circuit
+		// bool inputErrorB = false;
+		for(int port = 0; port < 3; port++) {
+			Serial.print("Testing AUX Counter "); //DEBUG!
+			Serial.println(port + 1); 
+			ioBeta.safeMode(PCAL9535A::SAFEOFF); //Turn off for fastest write
+			for(int p = 1; p < numPulses; p++) { //Pulse input 5 times
+				// if(ioBeta.digitalRead(pinsBeta::OUT1 + port) != HIGH) inputErrorA = true; //If the OUTx line is not sitting high, there is an error in the input circuit
+				ioBeta.digitalWrite(pinsBeta::D1_SENSE + port, HIGH);
+				// if(ioBeta.digitalRead(pinsBeta::OUT1 + port) != LOW) inputErrorB = true; //If after toggling the Dx input high, the output does not go low there is an error in the input circuit 
+				delayMicroseconds(10);
+				ioBeta.digitalWrite(pinsBeta::D1_SENSE + port, LOW);
+				delayMicroseconds(10);
+				readCounters(); //Read in values after testing
+				if(counts[port] != p) throwError(COUNTER_INCREMENT_FAIL | 0x0200 | portErrorCode | (port + 1)); //If increment does not match, throw error
+				Serial.print(counts[port]); //DEBUG!
+				Serial.print(","); 
+				Serial.println(p);
+			}
+			
+			// clearCount(time);
+			//Send previously obtained error codes
+			// if(inputErrorA) throwError(INPUT_BUFF_FAIL | 0x0100 | portErrorCode | (port + 1)); //OR with fail to force low error code
+			// if(inputErrorB) throwError(INPUT_BUFF_FAIL | 0x0200 | portErrorCode | (port + 1)); //OR with fail to force high error code
+			
+			// else if(counts[port] != numPulses) { //If OUTx line responded as expected, but we STILL did not end up with the correct count, then this is a counter problem 
+			// 	throwError(COUNTER_INCREMENT_FAIL | portErrorCode | (port + 1)); 
+			// 	// for(int i = 0; i < 3; i++) { //DEBUG!
+			// 	// 	Serial.println(counts[i]); 
+			// 	// }
+			// }	
+			// inputErrorA = false; //Reset input error
+			// inputErrorB = false;
+		}
+		clearCount(time); //Clear counters again
 	}
 
 	if(diagnosticLevel <= 2) {
@@ -231,33 +275,36 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 			ioBeta.pinMode(pinsBeta::OUT1 + i, INPUT); //Set as input so we can measure the output of the input buffer
 		}
 		clearCount(time); //Clear counters to start with 0 value
-		bool inputError = false; //Used to keep track if there is an error in the input driver circuit
+		bool inputErrorA = false; //Used to keep track if there is an error in the input driver circuit
+		bool inputErrorB = false;
 		for(int port = 0; port < 3; port++) {
 			for(int p = 0; p < numPulses; p++) { //Pulse input 5 times
-				if(ioBeta.digitalRead(pinsBeta::OUT1 + port) != HIGH) inputError = true; //If the OUTx line is not sitting high, there is an error in the input circuit
+				if(ioBeta.digitalRead(pinsBeta::OUT1 + port) != HIGH) inputErrorA = true; //If the OUTx line is not sitting high, there is an error in the input circuit
 				ioBeta.digitalWrite(pinsBeta::D1_SENSE + port, HIGH);
-				if(ioBeta.digitalRead(pinsBeta::OUT1 + port) != LOW) inputError = true; //If after toggling the Dx input high, the output does not go low there is an error in the input circuit 
+				if(ioBeta.digitalRead(pinsBeta::OUT1 + port) != LOW) inputErrorB = true; //If after toggling the Dx input high, the output does not go low there is an error in the input circuit 
 				delay(1);
 				ioBeta.digitalWrite(pinsBeta::D1_SENSE + port, LOW);
 				delay(1);
 			}
 			readCounters(); //Read in values after testing
 			// clearCount(time);
-			if(inputError) { //If the OUTx line did not change as expected when toggled, this is a buffer error
-				throwError(INPUT_BUF_ERROR | 0b0100 | port); //OR with port number and Dx indicator 
-			}
+			//Send previously obtained error codes
+			if(inputErrorA) throwError(INPUT_BUFF_FAIL | 0x0100 | portErrorCode | (port + 1)); //OR with fail to force low error code
+			else if(inputErrorB) throwError(INPUT_BUFF_FAIL | 0x0200 | portErrorCode | (port + 1)); //OR with fail to force high error code
+			else if(counts[port] == 0) throwError(COUNTER_INCREMENT_FAIL | 0x0100 | portErrorCode | (port + 1)); //Indicate counter does not increment at all
 			else if(counts[port] != numPulses) { //If OUTx line responded as expected, but we STILL did not end up with the correct count, then this is a counter problem 
-				throwError(COUNTER_INCREMENT_ERROR | port); 
+				throwError(COUNTER_INCREMENT_FAIL | 0x0300 | portErrorCode | (port + 1)); 
 				// for(int i = 0; i < 3; i++) { //DEBUG!
 				// 	Serial.println(counts[i]); 
 				// }
 			}	
-			inputError = false; //Reset input error
+			inputErrorA = false; //Reset input error
+			inputErrorB = false;
 		}
 		clearCount(time); //Clear counters again
 		readCounters(); //Read in values after clearing 
-		if(counts[0] != 0 || counts[1] != 0 || counts[2] != 0) throwError(COUNTER_CLEAR_ERROR); //If counter does not clear correctly, throw error 
-		inputError = false; //Clear error flag for next test 
+		if(counts[0] != 0 || counts[1] != 0 || counts[2] != 0) throwError(COUNTER_CLEAR_FAIL | portErrorCode); //If counter does not clear correctly, throw error 
+		// inputError = false; //Clear error flag for next test 
 		
 		for(int i = 0; i < 3; i++) {
 			ioBeta.digitalWrite(pinsBeta::D1_SENSE + i, LOW); //Drive all Dx_SENSE lines low to prevent erronious output ticks
@@ -266,19 +313,19 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 	
 		for(int port = 0; port < 3; port++) {
 			for(int p = 0; p < numPulses; p++) { //Pulse input 5 times
-				if(ioBeta.digitalRead(pinsBeta::OUT1 + port) != HIGH) inputError = true; //If the OUTx line is not sitting low, there is an error in the input circuit
+				if(ioBeta.digitalRead(pinsBeta::OUT1 + port) != HIGH) inputErrorA = true; //If the OUTx line is not sitting low, there is an error in the input circuit
 				// ioBeta.digitalWrite(pinsBeta::OD1 + port, HIGH);
 				ioBeta.pinMode(pinsBeta::OD1 + port, INPUT); //Switch ODx to input to release to pullup (do this instead of push-pull to prevent output shorting)
-				if(ioBeta.digitalRead(pinsBeta::OUT1 + port) != LOW) inputError = true; //If after toggling the ODx input high, the output does not go low there is an error in the input circuit //FIX! switch to interrupt measurment for this part
+				delay(1);
+				if(ioBeta.digitalRead(pinsBeta::OUT1 + port) != LOW) inputErrorB = true; //If after toggling the ODx input high, the output does not go low there is an error in the input circuit //FIX! switch to interrupt measurment for this part
 				delay(1);
 				// ioBeta.digitalWrite(pinsBeta::OD1 + port, LOW);
 				ioBeta.pinMode(pinsBeta::OD1 + port, OUTPUT); //Turn on ODx output to drive low
 				delay(1);
 			}
 			// readCounters(); //Read in values after testing
-			if(inputError) { //If the OUTx line did not change as expected when toggled, this is a buffer error
-				throwError(INPUT_BUF_ERROR | port); //OR with port number
-			}
+			if(inputErrorA) throwError(INPUT_BUFF_FAIL | 0x0100 | portErrorCode | (port + 1)); //OR with fail to force low error code
+			if(inputErrorB) throwError(INPUT_BUFF_FAIL | 0x0300 | portErrorCode | (port + 1)); //OR with fail on release error code
 		}
 
 		///////////// IDENTIFY Dx INPUTS //////////
