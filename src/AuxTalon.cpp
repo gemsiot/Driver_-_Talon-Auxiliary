@@ -569,26 +569,35 @@ String AuxTalon::getData(time_t time)
 	const time_t startTime = clearTime; //Grab current clear time //FIX! change to report the time used in calculation
 	const time_t stopTime = time; //Grab the time the current update is made
 	String output = "\"Talon-Aux\":"; //OPEN JSON BLOB
+	String portString[3] = {""};
 	if(isPresent()) { //If Talon has been detected, go through normal data appending 
 		updateCount(time); //Update counter values
 		updateAnalog(); //Update analog readings
 		output = output + "{"; //Open sub-blob
-		String analogData = "\"AIN\":[";
-		String analogAvgData = "\"AIN_AVG\":[";
-		String countData = "\"COUNTS\":[";
-		String rateData = "\"RATE\":[";
-		for(int i = 0; i < 3; i++) {
-			analogData = analogData + String(analogVals[i], 7) + ",";
-			analogAvgData = analogAvgData + String(analogValsAvg[i], 7) + ",";
-			countData = countData + String(counts[i]) + ",";
-			rateData = rateData + String(rates[i], 7) + ",";
-		}
-		analogData = analogData.substring(0,analogData.length() - 1) + "],"; //Trim trailing ',' and close array
-		analogAvgData = analogAvgData.substring(0,analogAvgData.length() - 1) + "],";
-		countData = countData.substring(0,countData.length() - 1) + "],";
-		rateData = rateData.substring(0,rateData.length() - 1) + "],";
+		// String analogData = "\"AIN\":[";
+		// String analogAvgData = "\"AIN_AVG\":[";
+		// String countData = "\"COUNTS\":[";
+		// String rateData = "\"RATE\":[";
 
-		output = output + analogData + analogAvgData + countData + rateData; //Concatonate all sub-strings
+		for(int i = 0; i < 3; i++) {
+			portString[i] = "\"PORT_" + String(i + 1) + "\":["; //Open blob
+			portString[i] = portString[i] + String(analogVals[i], 7) + ",";
+			portString[i] = portString[i] + String(analogValsAvg[i], 7) + ",";
+			portString[i] = portString[i] + String(counts[i]) + ",";
+			portString[i] = portString[i] + String(rates[i], 7);
+			portString[i] = portString[i] + "]"; //Close blob
+			// analogData = analogData + String(analogVals[i], 7) + ",";
+			// analogAvgData = analogAvgData + String(analogValsAvg[i], 7) + ",";
+			// countData = countData + String(counts[i]) + ",";
+			// rateData = rateData + String(rates[i], 7) + ",";
+		}
+		// analogData = analogData.substring(0,analogData.length() - 1) + "],"; //Trim trailing ',' and close array
+		// analogAvgData = analogAvgData.substring(0,analogAvgData.length() - 1) + "],";
+		// countData = countData.substring(0,countData.length() - 1) + "],";
+		// rateData = rateData.substring(0,rateData.length() - 1) + "],";
+
+		// output = output + analogData + analogAvgData + countData + rateData; //Concatonate all sub-strings
+		output = output + portString[0] + "," + portString[1] + "," + portString[2] + ","; //Concatonate each set of port values 
 		output = output + "\"START\":" + String((long) startTime) + ","; //Concatonate start time
 		output = output + "\"STOP\":" + String((long) stopTime) + ","; //Concatonate stop time
 		output = output + "\"Pos\":[" + getTalonPortString() + "]"; //Concatonate position 
