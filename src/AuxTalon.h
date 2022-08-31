@@ -196,6 +196,9 @@ class AuxTalon: public Talon
       return numPorts;
     }
 
+    int sleep();
+    int wake();
+
     // const uint8_t sensorInterface = BusType::NONE;
     bool automaticGainControl = true; ///<Flag to configure the automatic gain control for analog sensing (Default = true)
     uint8_t samplesToAverage = 128; ///<Flag to configure the number of samples to average across for analog sensing (Default = 128)

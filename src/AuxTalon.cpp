@@ -23,6 +23,7 @@ AuxTalon::AuxTalon(uint8_t talonPort_, uint8_t hardwareVersion) : ioAlpha(0x20),
 	else talonPort = 255; //Reset to null default if not in range
 	version = hardwareVersion; //Copy to local
 	talonInterface = BusType::NONE; 
+	keepPowered = true; //DEBUG! Force this device on
 }
 
 String AuxTalon::begin(time_t time, bool &criticalFault, bool &fault) 
@@ -999,6 +1000,18 @@ String AuxTalon::getMetadata()
 // 		portErrorCode = (talonPort + 1) << 4; //Set port error code in rational counting 
 // 	}
 // }
+
+int AuxTalon::sleep()
+{
+	//Turn off 5V if possible
+	//Turn off analog ports 
+	return 0; //DEBUG!
+}
+
+int AuxTalon::wake()
+{
+	return 0;
+}
 
 int AuxTalon::disableDataAll()
 {
