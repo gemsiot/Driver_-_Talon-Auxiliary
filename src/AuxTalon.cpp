@@ -29,12 +29,11 @@ AuxTalon::AuxTalon(uint8_t talonPort_, uint8_t hardwareVersion) : ioAlpha(0x20),
 String AuxTalon::begin(time_t time, bool &criticalFault, bool &fault) 
 {
 	//Only use isEnabled() if using particle
-	#if defined(ARDUINO) && ARDUINO >= 100 
-		Wire.begin();
-	#elif defined(PARTICLE)
-		if(!Wire.isEnabled()) Wire.begin(); //Only initialize I2C if not done already //INCLUDE FOR USE WITH PARTICLE 
-	#endif
-
+	// #if defined(ARDUINO) && ARDUINO >= 100 
+	// 	Wire.begin();
+	// #elif defined(PARTICLE)
+	if(!Wire.isEnabled()) Wire.begin(); //Only initialize I2C if not done already //INCLUDE FOR USE WITH PARTICLE 
+	// #endif
 	// bool criticalFault = false; //Used to keep track if a critical error has been encountered during the initialization
 	// bool fault = false; //Used to keep track if a non-critical error has been encountered during the initialization
 	int startingErrors = numErrors; //Grab the number of errors which have been logged when we start the begin call, used to keep track of new errors
@@ -46,7 +45,7 @@ String AuxTalon::begin(time_t time, bool &criticalFault, bool &fault)
 
 	for(int i = 0; i < 3; i++) {
 		if(ioError[i] != 0) { 
-			throwError(IO_INIT_ERROR | ioError[i]); //Throw error on first init error, not again 
+			throwError(IO_INIT_FAIL | (ioError[i] << 8) | talonPortErrorCode | i + 1); //Throw error on first init error, not again 
 			criticalFault = true; //If any IO expander fails, this is a critical error  
 			break;
 		}
@@ -54,8 +53,9 @@ String AuxTalon::begin(time_t time, bool &criticalFault, bool &fault)
 
 	Wire.beginTransmission(ADR_ADS1115);
 	Wire.write(0x00);
-	if(Wire.endTransmission() != 0) {
-		throwError(ADC_INIT_ERROR); //Throw ADC initialization error
+	int adcError = Wire.endTransmission(); 
+	if(adcError != 0) {
+		throwError(AUX_ADC_INIT_FAIL | (adcError << 8) | talonPortErrorCode); //Throw ADC initialization error
 		fault = true; //Set non-critical fault flag
 	}
 	// ads.begin();
@@ -63,7 +63,7 @@ String AuxTalon::begin(time_t time, bool &criticalFault, bool &fault)
 	setPinDefaults();
 	
 	///////////////////// RUN DIAGNOSTICS /////////////
-	String diagnosticResults = selfDiagnostic(2); //Run level two diagnostic
+	// String diagnosticResults = selfDiagnostic(2); //Run level two diagnostic
 
 	////////// RESET COUNTERS //////////////////////////
 	clearCount(time); //Clear counter and pass time info in
@@ -79,7 +79,8 @@ String AuxTalon::begin(time_t time, bool &criticalFault, bool &fault)
 	// if(criticalFault == true) return -1; //If a critical fault was detected, return with critical fault code
 	if(numErrors - startingErrors > 0 || fault == true) fault = true; //If a non-critical fault was detected, or additional errors thrown, set fault
 	// else return 0; //Only if no additional errors present, return operational state
-	return diagnosticResults; //Return diagnostic string
+	// return diagnosticResults; //Return diagnostic string
+	return "";
 }
 
 // int AuxTalon::restart()
@@ -443,7 +444,7 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 			delay(1); //DEBUG!
 			portInputVoltage[i] = float(adcRead(3, 0))*(adcGainConv[0]); //Read from port 3 with no gain, convert to mV
 			// portInputString = portInputString + String(portInputVoltage[i], 4) + ","; //Use max decimal places for min ADC resolution x.1875 
-			if((portInputVoltage[i] - portOutputVoltage[i])/portInputVoltage[i] > MAX_DISAGREE) throwError(BUS_DISAGREE | i); //Throw port disagree error and note position of port
+			if((portInputVoltage[i] - portOutputVoltage[i])/portInputVoltage[i] > MAX_DISAGREE) throwError(BUS_DISAGREE | talonPortErrorCode | i + 1); //Throw port disagree error and note position of port
 		}
 		
 		// portInputString = portInputString.substring(0, portInputString.length() - 1) + "],"; //Trim trailing ',' and cap substring
@@ -457,16 +458,22 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 			if(portInputVoltage[i] < max3v3 && portInputVoltage[i] > min3v3) portVoltageSettings[i] = 0; //If within 3v3 range, set port config accordingly 
 			else if(portInputVoltage[i] < max5v && portInputVoltage[i] > min5v) portVoltageSettings[i] = 1; //If within the 5v range, set the port config accordingly 
 			else {
-				if(portInputVoltage[i] < min3v3) portVoltageSettings[i] = 0; //Make assumption about switch position, set config accordingly
-				else portVoltageSettings[i] = 1;
-				throwError(BUS_OUTOFRANGE | i); //Throw out of range error and note position of port
+				if(portInputVoltage[i] < min3v3) {
+					portVoltageSettings[i] = 0; //Make assumption about switch position, set config accordingly
+					throwError(BUS_OUTOFRANGE | 0x100 | talonPortErrorCode | i + 1); //Throw undervolt error
+				}
+				else {
+					portVoltageSettings[i] = 1;
+					throwError(BUS_OUTOFRANGE | talonPortErrorCode | i + 1); //Throw general out of range error and note position of port
+				}
 			}
 		}
 		ioAlpha.digitalWrite(pinsAlpha::MUX_SEL0, 1); //Connect MUX to 5V rail
 		ioAlpha.digitalWrite(pinsAlpha::MUX_SEL1, 1);
 		ioAlpha.digitalWrite(pinsAlpha::MUX_SEL2, HIGH); 
 		float busVoltage_5V = float(adcRead(3, 0))*(adcGainConv[0]); //Read 5V port with no gain, convert to mV
-		if((busVoltage_5V - 5000)/5000 > MAX_DISAGREE) throwError(BUS_OUTOFRANGE | 3); //Throw out of range error and note position of port
+		if(busVoltage_5V < min5v) throwError(BUS_OUTOFRANGE | 0x100 | talonPortErrorCode | 4); //Throw undervolt error
+		if(abs(busVoltage_5V - 5000)/5000 > MAX_DISAGREE) throwError(BUS_OUTOFRANGE | talonPortErrorCode | 4); //Throw general out of range error and note position of port
 
 		// output = output + portInputString + portOutputString + ",\"5V0_RAIL\":" + String(busVoltage_5V, 4) +  "},"; //Concatonate strings and cap
 		// String level5 = selfDiagnostic(5); //Call the lower level of self diagnostic 
@@ -490,10 +497,10 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 			overflow[i] = ioBeta.getInterrupt(pinsBeta::OVF1 + i); //Read in overflow values
 			faults[i] = ioAlpha.getInterrupt(pinsAlpha::FAULT1 + i); //Read in fault values
 			if (overflow[i] == true) {
-				throwError(COUNTER_OVERFLOW | i); //Throw overflow error with given port appended 
+				throwError(COUNTER_OVERFLOW | talonPortErrorCode | i + 1); //Throw overflow error with given port appended 
 			}
 			if (faults[i] == true) {
-				throwError(POWER_FAULT | i); //Throw power fault error with given port appended 
+				throwError(AUX_POWER_FAIL | talonPortErrorCode | i + 1); //Throw power fault error with given port appended 
 			}
 		}
 
@@ -547,7 +554,7 @@ int AuxTalon::restart()
 {
 	bool hasCriticalError = false;
 	bool hasError = false;
-	if(hasReset()) begin(0, hasCriticalError, hasError); //If for some reason the begin() function has not been run, call this now //FIX!
+	if(hasReset() && initDone) begin(0, hasCriticalError, hasError); //If for some reason the begin() function has not been run, call this now //FIX!
 	setPinDefaults(); //Reset IO expander pins to their default state
 	for(int i = 0; i < 3; i++) {
 		if (faults[i] == true) { 
@@ -557,7 +564,7 @@ int AuxTalon::restart()
 				ioAlpha.digitalWrite(pinsAlpha::EN1 + i, HIGH); //Turn port back on finally
 				delay(10); //Wait for trip
 				if(ioAlpha.digitalRead(pinsAlpha::FAULT1 + i) == LOW) { //If FAULT is re-asserted after power cycle
-					throwError(POWER_FAULT_PERSISTENT | i); //Throw persistent power fault error with given port appended 
+					throwError(AUX_POWER_FAIL_PERSISTENT | talonPortErrorCode | i + 1); //Throw persistent power fault error with given port appended 
 				}
 			}
 		}
@@ -671,7 +678,7 @@ int AuxTalon::readCounters()
 		else counts[i] = 0; //If any critical error present, invalidate data
 		ioBeta.digitalWrite(pinsBeta::COUNT_EN1 + i, HIGH); //Disable given bus
 		if (resetState == true) {
-			throwError(DEVICE_RESET); //Report the unplanned reset
+			throwError(DEVICE_RESET | talonPortErrorCode); //Report the unplanned reset
 		}
 	}
 	return 0; //FIX!
@@ -695,12 +702,12 @@ int AuxTalon::clearCount(time_t time)
 		clearTime = 0;
 		// readTime = 0; 
 		timeBaseGood = false; //If any of time times are inconsistent, set the timebase to bad 
-		throwError(TIME_BAD);
+		throwError(TIME_BAD | talonPortErrorCode);
 	}
 	else if((time - clearTime) > maxTimeDelta && initDone == true) { //Only trigger if delta is exceeded after initial setup. On setup, time will go from 0 to correct time, this will trigger excess delta erroniously 
 		clearTime = time; //Copy time value over 
 		timeBaseGood = false; //Indicate that time base is not secure, but not confident in the failure 
-		throwError(TIME_DELTA_EXCEEDED);
+		throwError(TIME_DELTA_EXCEEDED | talonPortErrorCode);
 	}
 
 	ioAlpha.pinMode(pinsAlpha::RST, OUTPUT);
@@ -748,7 +755,7 @@ int16_t AuxTalon::adcRead(uint8_t port, uint8_t gain)
 	int error = adcConfig(adcBaseConfigHigh | adcGainConfigs[gain] | adcPortConfigs[port], adcBaseConfigLow); //Set config to base with specified gain and connected to given port
 	adcConfig(adcBaseConfigHigh | adcGainConfigs[gain] | adcPortConfigs[port] | adcStartConversion, adcBaseConfigLow); //Tell ADC to begin conversion 
 	if(error != 0){
-		throwError(ADC_I2C_ERROR | error); //Alert to error if I2C comunication problem 
+		throwError(AUX_ADC_READ_FAIL | (error << 8) | talonPortErrorCode); //Alert to error if I2C comunication problem 
 		return 0; //Exit with error condition 
 	}
 	bool newRead = (readADCReg(0x01) >> 15) & 0x01; //Grab OS bit from config reg
@@ -757,7 +764,7 @@ int16_t AuxTalon::adcRead(uint8_t port, uint8_t gain)
 		newRead = (readADCReg() >> 15) & 0x01 ;
 	}
 	if(!newRead) {
-		throwError(ADC_TIMEOUT_ERROR); //If new reading is not done, throw timeout error
+		throwError(ADC_TIMEOUT | talonPortErrorCode); //If new reading is not done, throw timeout error
 		return 0; //Exit with error condition 
 	}
 	else {
@@ -805,7 +812,7 @@ int16_t AuxTalon::readADCReg(uint8_t reg)
 	Wire.write(reg); //Point to desired register 
 	int error = Wire.endTransmission();
 	if(error != 0) {
-		throwError(ADC_I2C_ERROR | error); //Alert to error if I2C comunication problem 
+		throwError(AUX_ADC_READ_FAIL | (error << 8) | talonPortErrorCode); //Alert to error if I2C comunication problem 
 		return 0; //Exit with error condition 
 	}
 
@@ -820,7 +827,7 @@ int16_t AuxTalon::readADCReg(uint8_t reg)
 	}
 	else {
 		error = 0x07; //Set timeout error 
-		throwError(ADC_I2C_ERROR | error); //If I2C timeout occoured, throw I2C error as well 
+		throwError(AUX_ADC_READ_FAIL | (error << 8) | talonPortErrorCode); //If I2C timeout occoured, throw I2C error as well 
 		return 0;
 	}
 }
@@ -838,7 +845,7 @@ int16_t AuxTalon::readADCReg()
 	}
 	else {
 		int error = 0x07; //Set timeout error 
-		throwError(ADC_I2C_ERROR | error); //If I2C timeout occoured, throw I2C error as well 
+		throwError(AUX_ADC_READ_FAIL | (error << 8) | talonPortErrorCode); //If I2C timeout occoured, throw I2C error as well 
 		return 0;
 	}
 }
@@ -947,7 +954,7 @@ String AuxTalon::getMetadata()
 	// uint64_t uuid = 0;
 	String uuid = "";
 
-	if(error != 0) throwError(EEPROM_I2C_ERROR | error);
+	if(error != 0) throwError(TALON_EEPROM_READ_FAIL | (error << 8) | talonPortErrorCode);
 	else {
 		uint8_t val = 0;
 		Wire.requestFrom(0x58, 8); //EEPROM address

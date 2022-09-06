@@ -120,26 +120,26 @@ class AuxTalon: public Talon
   constexpr static  int DEAFULT_PORT = 4; ///<Use port 4 by default
   constexpr static  int DEFAULT_VERSION = 0x14; ///<Use hardware version v1.4 by default
   constexpr static  int MAX_NUM_ERRORS = 10; ///<Maximum number of errors to log before overwriting previous errors in buffer
-  const String FIRMWARE_VERSION = "1.1.0"; //FIX! Read from system??
+  const String FIRMWARE_VERSION = "1.2.0"; //FIX! Read from system??
   
   ////////////// ERROR CODES ///////////////
-  const uint32_t ADC_I2C_ERROR = 0xFF00; //FIX!!! (Low 3 bits are returned error)
-  const uint32_t ADC_TIMEOUT_ERROR = 0xFF10; //FIX!!!
-  const uint32_t COUNTER_OVERFLOW = 0xFF20; //FIX!!! (low 2 bits are which port)
-  const uint32_t TIME_DELTA_EXCEEDED = 0xFF30; //FIX!!! 
-  const uint32_t TIME_BAD = 0xFF40; //FIX!
-  const uint32_t DEVICE_RESET = 0xFF50; //FIX!
-  const uint32_t POWER_FAULT = 0xFF60; //FIX! (low 2 bits are which port)
-  const uint32_t POWER_FAULT_PERSISTENT = 0xFF70; //FIX! (low 2 bits are which port)
-  const uint32_t BUS_DISAGREE = 0xFF80; //FIX! (low 2 bits are which port)
-  const uint32_t BUS_OUTOFRANGE = 0xFF90; //FIX! (low 2 bits are which port, 3 = 5V rail)
-  const uint32_t IO_INIT_ERROR = 0xFFA0; //FIX! (Low 3 bits are returned error)
-  const uint32_t ADC_INIT_ERROR = 0xFFB0; //FIX! (Low 3 bits are returned error)
-  const uint32_t INPUT_BUFF_FAIL = 0x30010000; //FIX! (Low 2 bytes are which port, 3rd byte failure type)
-  const uint32_t COUNTER_INCREMENT_FAIL = 0x80060000; //FIX! (Low 2 bits are which port)
-  const uint32_t COUNTER_CLEAR_FAIL = 0x80050000; //Counter fails to clear when ordered - low 2 bytes are Talon and port
-  const uint32_t EEPROM_I2C_ERROR = 0xFFF0; //FIX! (Low 3 bits are returned error)
-  const uint32_t PORT_RANGE_ERROR = 0xF000; //FIX! 
+  const uint32_t AUX_ADC_READ_FAIL = 0x100E0000; ///<Can't talk to ADC over I2C
+  const uint32_t ADC_TIMEOUT = 0x80070000; ///<Communication works, but new reading not returned in time
+  const uint32_t COUNTER_OVERFLOW = 0xF00F0000; ///<Counter for a given port has overflowed 
+  const uint32_t TIME_DELTA_EXCEEDED = 0xF0100000; ///<Time is non-zero, but delta between start and stop is unreasonable
+  const uint32_t TIME_BAD = 0xF0110000; ///<Time given is non-sensical
+  const uint32_t DEVICE_RESET = 0xF0120000; ///<Device has been reset since the last read
+  const uint32_t AUX_POWER_FAIL = 0x20020000; ///<Failure in sensor power detected
+  const uint32_t AUX_POWER_FAIL_PERSISTENT = 0x20020100; ///<Power failure continues even after power cycle
+  const uint32_t BUS_DISAGREE = 0x70020000; ///<Input and output measure of bus are outside of valid range
+  const uint32_t BUS_OUTOFRANGE = 0x20030000; ///<Bus is outside of specified range
+  const uint32_t IO_INIT_FAIL = 0x100F0000; ///<Failure to initialize IO expander, port coresponds to which IO expander (1 = Alpha, 2 = Beta, 3 = Gamma)
+  const uint32_t AUX_ADC_INIT_FAIL = 0x10100000; ///<Failure to initialize ADC
+  const uint32_t INPUT_BUFF_FAIL = 0x30010000; ///<Input buffer does not pass signal
+  const uint32_t COUNTER_INCREMENT_FAIL = 0x80060000; ///<Failure to increment the counter, but buffer works
+  const uint32_t COUNTER_CLEAR_FAIL = 0x80050000; ///<Counter fails to clear when ordered - low 2 bytes are Talon and port
+  const uint32_t TALON_EEPROM_READ_FAIL = 0x10090000; ///<Report failure to read from Talon EEPROM 
+  // const uint32_t TALON_PORT_RANGE_ERROR = 0x90010200; ///<Talon port assignment is out of range 
   const float MAX_DISAGREE = 0.1; //If bus is different from expected by more than 10%, throw error
 
   
@@ -264,7 +264,7 @@ class AuxTalon: public Talon
 
     time_t clearTime = 0;
     // static time_t readTime = 0;
-    bool initDone = false; //Used to keep track if the initaliztion has run - used by hasReset() 
+    // bool initDone = false; //Used to keep track if the initaliztion has run - used by hasReset() 
     
 
     // uint32_t errors[MAX_NUM_ERRORS] = {0};
