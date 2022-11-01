@@ -185,6 +185,7 @@ String AuxTalon::getErrors()
 
 String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 {
+	unsigned long diagnosticStart = millis(); 
 	bool talonPresent = true;
 	if(getTalonPort() == 0) {
 		talonPresent = false; //Clear flag //DEBUG!
@@ -542,6 +543,7 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 		// if(i < numPorts - 1) output = output + ","; //Only add comma if not last 
 	}
 	output = output + sysOutput + "}"; 
+	if((millis() - diagnosticStart) > collectMax) throwError(EXCEED_COLLECT_TIME | 0x200 | talonPortErrorCode | sensorPortErrorCode); //Throw error for diagnostic taking too long
 	return output;
 	// return output + ",\"Pos\":[" + getTalonPortString() + "]}}"; //Write position in logical form - Return compleated closed output
 	// else return ""; //Return empty string if reaches this point 
@@ -574,6 +576,7 @@ int AuxTalon::restart()
 
 String AuxTalon::getData(time_t time)
 {
+	unsigned long dataStart = millis();
 	const time_t startTime = clearTime; //Grab current clear time //FIX! change to report the time used in calculation
 	const time_t stopTime = time; //Grab the time the current update is made
 	String output = "\"Talon-Aux\":"; //OPEN JSON BLOB
@@ -612,7 +615,7 @@ String AuxTalon::getData(time_t time)
 		output = output + "}"; //CLOSE JSON BLOB
 	}
 	else output = output + "null"; //Close with null
-	
+	if((millis() - dataStart) > collectMax) throwError(EXCEED_COLLECT_TIME | 0x100 | talonPortErrorCode | sensorPortErrorCode); //Throw error for data taking too long
 	return output;
 
 }
@@ -948,6 +951,7 @@ bool AuxTalon::hasReset()
 
 String AuxTalon::getMetadata()
 {
+	unsigned long metadataStart = millis();
 	Wire.beginTransmission(0x58); //Write to UUID range of EEPROM
 	Wire.write(0x98); //Point to start of UUID
 	int error = Wire.endTransmission();
@@ -974,6 +978,7 @@ String AuxTalon::getMetadata()
 	metadata = metadata + "\"Firmware\":\"v" + FIRMWARE_VERSION + "\","; //Report firmware version as modded BCD
 	metadata = metadata + "\"Pos\":[" + getTalonPortString() + "]"; //Concatonate position 
 	metadata = metadata + "}"; //CLOSE  
+	if((millis() - metadataStart) > collectMax) throwError(EXCEED_COLLECT_TIME | 0x300 | talonPortErrorCode | sensorPortErrorCode); //Throw error for metadata taking too long
 	return metadata; 
 }
 

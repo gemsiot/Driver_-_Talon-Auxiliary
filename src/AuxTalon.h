@@ -120,7 +120,7 @@ class AuxTalon: public Talon
   constexpr static  int DEAFULT_PORT = 4; ///<Use port 4 by default
   constexpr static  int DEFAULT_VERSION = 0x14; ///<Use hardware version v1.4 by default
   constexpr static  int MAX_NUM_ERRORS = 10; ///<Maximum number of errors to log before overwriting previous errors in buffer
-  const String FIRMWARE_VERSION = "1.2.0"; //FIX! Read from system??
+  const String FIRMWARE_VERSION = "1.2.1"; //FIX! Read from system??
   
   ////////////// ERROR CODES ///////////////
   const uint32_t AUX_ADC_READ_FAIL = 0x100E0000; ///<Can't talk to ADC over I2C
