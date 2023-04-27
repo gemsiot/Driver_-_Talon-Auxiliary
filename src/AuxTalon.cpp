@@ -378,15 +378,39 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 		float senseDischarged[3] = {0};
 		float senseLoaded[3] = {0};
 		unsigned long dischargePeriod = 250; //Time to wait while discharging in ms
+		uint8_t offsetSamples = 16; //Number of samples to take to average value if measuring the offset value 
+		float offsetThreshold = 1.0; //Threshold for reading offset value
 
 		for(int port = 0; port < 3; port++) {
 			senseOpen[port] = float(adcRead(port, 0))*(adcGainConv[0]); //Read baseline port value at full range
 			ioAlpha.pinMode(pinsAlpha::ACTRL1 + port, OUTPUT); //Set MOSFET drive to output
 			ioAlpha.digitalWrite(pinsAlpha::ACTRL1 + port, HIGH); //Turn on MOSFET to discharge output
 			delay(dischargePeriod); //Wait for RC circuit to discharge
-			senseLoaded[port] = float(adcRead(port, 0))*(adcGainConv[0]); //Read fully discharged value
+			senseLoaded[port] = float(adcRead(port, 0))*(adcGainConv[0]); //Read fully discharged value 
+			// Serial.print("Loaded Value - Raw: "); //DEBUG!
+			// Serial.print(adcRead(port, 0)); //Dummy read to clear //DEBUG!
+			// Serial.print("\t"); //DEBUG!
+			// Serial.println(adcRead(port, 5)); //Dummy read to clear //DEBUG!
+			// delay(150); //DEBUG!
+			// senseLoaded[port] = float(adcRead(port, 5))*(adcGainConv[5]); //Read fully discharged value, high gain //DEBUG!
+			if(senseLoaded[port] < offsetThreshold) {
+				float offsetMeasure = 0; //Used to temporarily store offset measure
+				adcRead(port, 5); //Dummy read to ensure register is clear 
+				for(int i = 0; i < offsetSamples; i++) {
+					offsetMeasure = offsetMeasure + float(adcRead(port, 5))*(adcGainConv[5]); //Read at high gain
+				}
+				senseLoaded[port] = offsetMeasure/float(offsetSamples); //Set loaded value with averaged value
+			}
 			ioAlpha.digitalWrite(pinsAlpha::ACTRL1 + port, LOW); //Turn MOSFET off to release line
 			senseDischarged[port] = float(adcRead(port, 0))*(adcGainConv[0]); //Read in discharged value
+			// Serial.print("AuxTalonSenseVals: Port ");
+			// Serial.print(port);
+			// Serial.print(senseOpen[port]);
+			// Serial.print("\t");
+			// Serial.print(senseLoaded[port]);
+			// Serial.print("\t");
+			// Serial.println(senseDischarged[port]);
+
 		}
 		for(int i = 0; i < numPorts; i++) {
 			if(talonPresent) portOutput[i] = portOutput[i] + "\"In_Occ\":" + String(digitalInputOccupied[i]) + ",\"In_State\":" + String(digitalInputCurrentState[i]) + ",\"Ain_O\":" + String(senseOpen[i]) + ",\"Ain_D\":" + String(senseDischarged[i]) + ",\"Ain_L\":" + String(senseLoaded[i]) + ",";

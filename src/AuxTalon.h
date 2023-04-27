@@ -277,7 +277,7 @@ class AuxTalon: public Talon
     //////// ADC CONFIG VALS //////////////
     const uint8_t adcBaseConfigHigh = 0x01; //Single shot, blanked port and gain
     const uint8_t adcBaseConfigLow = 0x80; //128 sps
-    const uint8_t adcGainConfigs[6] = {0x00, 0x02, 0x04, 0x06, 0x08, 0x10}; //6.144V, 4.096V, 2.048V, 1.024V, 0.512V, 0.256V
+    const uint8_t adcGainConfigs[6] = {0x00, 0x02, 0x04, 0x06, 0x08, 0x0A}; //6.144V, 4.096V, 2.048V, 1.024V, 0.512V, 0.256V
     const float adcGainConv[6] = {0.1875, 0.125, 0.0625, 0.03125, 0.015625, 0.0078125}; //Multiply output by conversion value to get mV
     const uint8_t adcPortConfigs[4] = {0x40, 0x50, 0x60, 0x70}; //Port0, Port1, Port2, Port3
     const uint8_t adcStartConversion = 0x80; 
