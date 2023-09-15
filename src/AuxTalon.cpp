@@ -51,6 +51,12 @@ String AuxTalon::begin(time_t time, bool &criticalFault, bool &fault)
 		}
 	}
 
+	
+	// ads.begin();
+
+	setPinDefaults();
+
+	//Perform after setting default pins to ensure 5v converter is active 
 	Wire.beginTransmission(ADR_ADS1115);
 	Wire.write(0x00);
 	int adcError = Wire.endTransmission(); 
@@ -58,9 +64,6 @@ String AuxTalon::begin(time_t time, bool &criticalFault, bool &fault)
 		throwError(AUX_ADC_INIT_FAIL | (adcError << 8) | talonPortErrorCode); //Throw ADC initialization error
 		fault = true; //Set non-critical fault flag
 	}
-	// ads.begin();
-
-	setPinDefaults();
 	
 	///////////////////// RUN DIAGNOSTICS /////////////
 	// String diagnosticResults = selfDiagnostic(2); //Run level two diagnostic
