@@ -135,7 +135,6 @@ class AuxTalon: public Talon
   const uint32_t AUX_POWER_FAIL_PERSISTENT = 0x20020100; ///<Power failure continues even after power cycle
   const uint32_t BUS_DISAGREE = 0x70020000; ///<Input and output measure of bus are outside of valid range
   const uint32_t BUS_OUTOFRANGE = 0x20030000; ///<Bus is outside of specified range
-  const uint32_t IO_INIT_FAIL = 0x100F0000; ///<Failure to initialize IO expander, port coresponds to which IO expander (1 = Alpha, 2 = Beta, 3 = Gamma)
   const uint32_t AUX_ADC_INIT_FAIL = 0x10100000; ///<Failure to initialize ADC
   const uint32_t INPUT_BUFF_FAIL = 0x30010000; ///<Input buffer does not pass signal
   const uint32_t COUNTER_INCREMENT_FAIL = 0x80060000; ///<Failure to increment the counter, but buffer works
