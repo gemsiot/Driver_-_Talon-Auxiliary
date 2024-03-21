@@ -122,7 +122,7 @@ class AuxTalon: public Talon
   constexpr static  int DEAFULT_PORT = 4; ///<Use port 4 by default
   constexpr static  int DEFAULT_VERSION = 0x14; ///<Use hardware version v1.4 by default
   constexpr static  int MAX_NUM_ERRORS = 10; ///<Maximum number of errors to log before overwriting previous errors in buffer
-  const String FIRMWARE_VERSION = "1.2.1"; //FIX! Read from system??
+  const String FIRMWARE_VERSION = "1.2.2"; //FIX! Read from system??
   
   ////////////// ERROR CODES ///////////////
   const uint32_t AUX_ADC_READ_FAIL = 0x100E0000; ///<Can't talk to ADC over I2C
@@ -282,7 +282,6 @@ class AuxTalon: public Talon
     const float adcGainConv[6] = {0.1875, 0.125, 0.0625, 0.03125, 0.015625, 0.0078125}; //Multiply output by conversion value to get mV
     const uint8_t adcPortConfigs[4] = {0x40, 0x50, 0x60, 0x70}; //Port0, Port1, Port2, Port3
     const uint8_t adcStartConversion = 0x80; 
-    uint32_t portErrorCode = 0; //Used to easily OR with error codes to add the Talon port
 };
 
 #endif

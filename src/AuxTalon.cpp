@@ -233,7 +233,7 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 				ioBeta.digitalWrite(pinsBeta::D1_SENSE + port, LOW);
 				delayMicroseconds(10);
 				readCounters(); //Read in values after testing
-				if(counts[port] != p) throwError(COUNTER_INCREMENT_FAIL | 0x0200 | portErrorCode | (port + 1)); //If increment does not match, throw error
+				if(counts[port] != p) throwError(COUNTER_INCREMENT_FAIL | 0x0200 | talonPortErrorCode | (port + 1)); //If increment does not match, throw error
 				Serial.print(counts[port]); //DEBUG!
 				Serial.print(","); 
 				Serial.println(p);
@@ -297,11 +297,11 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 			readCounters(); //Read in values after testing
 			// clearCount(time);
 			//Send previously obtained error codes
-			if(inputErrorA) throwError(INPUT_BUFF_FAIL | 0x0100 | portErrorCode | (port + 1)); //OR with fail to force low error code
-			else if(inputErrorB) throwError(INPUT_BUFF_FAIL | 0x0200 | portErrorCode | (port + 1)); //OR with fail to force high error code
-			else if(counts[port] == 0) throwError(COUNTER_INCREMENT_FAIL | 0x0100 | portErrorCode | (port + 1)); //Indicate counter does not increment at all
+			if(inputErrorA) throwError(INPUT_BUFF_FAIL | 0x0100 | talonPortErrorCode | (port + 1)); //OR with fail to force low error code
+			else if(inputErrorB) throwError(INPUT_BUFF_FAIL | 0x0200 | talonPortErrorCode | (port + 1)); //OR with fail to force high error code
+			else if(counts[port] == 0) throwError(COUNTER_INCREMENT_FAIL | 0x0100 | talonPortErrorCode | (port + 1)); //Indicate counter does not increment at all
 			else if(counts[port] != numPulses) { //If OUTx line responded as expected, but we STILL did not end up with the correct count, then this is a counter problem 
-				throwError(COUNTER_INCREMENT_FAIL | 0x0300 | portErrorCode | (port + 1)); 
+				throwError(COUNTER_INCREMENT_FAIL | 0x0300 | talonPortErrorCode | (port + 1)); 
 				// for(int i = 0; i < 3; i++) { //DEBUG!
 				// 	Serial.println(counts[i]); 
 				// }
@@ -311,7 +311,7 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 		}
 		clearCount(time); //Clear counters again
 		readCounters(); //Read in values after clearing 
-		if(counts[0] != 0 || counts[1] != 0 || counts[2] != 0) throwError(COUNTER_CLEAR_FAIL | portErrorCode); //If counter does not clear correctly, throw error 
+		if(counts[0] != 0 || counts[1] != 0 || counts[2] != 0) throwError(COUNTER_CLEAR_FAIL | talonPortErrorCode); //If counter does not clear correctly, throw error 
 		// inputError = false; //Clear error flag for next test 
 		
 		for(int i = 0; i < 3; i++) {
@@ -332,8 +332,8 @@ String AuxTalon::selfDiagnostic(uint8_t diagnosticLevel, time_t time)
 				delay(1);
 			}
 			// readCounters(); //Read in values after testing
-			if(inputErrorA) throwError(INPUT_BUFF_FAIL | 0x0100 | portErrorCode | (port + 1)); //OR with fail to force low error code
-			if(inputErrorB) throwError(INPUT_BUFF_FAIL | 0x0300 | portErrorCode | (port + 1)); //OR with fail on release error code
+			if(inputErrorA) throwError(INPUT_BUFF_FAIL | 0x0100 | talonPortErrorCode | (port + 1)); //OR with fail to force low error code
+			if(inputErrorB) throwError(INPUT_BUFF_FAIL | 0x0300 | talonPortErrorCode | (port + 1)); //OR with fail on release error code
 		}
 
 		///////////// IDENTIFY Dx INPUTS //////////
